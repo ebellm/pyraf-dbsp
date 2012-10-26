@@ -21,6 +21,18 @@ iraf.onedspec(_doprint=0)
 det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253}, \
             'red':{'gain':2.8,'readnoise':8,'trace':166}}
 
+def mark_bad(side,numbers):
+    assert ((side == 'blue') or (side == 'red'))
+    try:
+        for num in numbers:
+            name = '{:s}{:04d}.fits'.format(side,num)
+            os.rename(name, name+'.bad')
+    except TypeError:
+        # single number
+        num = numbers
+        name = '{:s}{:04d}.fits'.format(side,num)
+        os.rename(name, name+'.bad')
+
 def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
     # Parameter values are passed in "p"
     # If fjac==None then partial derivatives should not be
@@ -151,7 +163,7 @@ def make_arcs_blue(slit=0.5, overwrite=False):
     iraf.imcombine.gain = det_pars['blue']['gain']
     arcs = iraf.hselect('blue0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture, Stdout=1))
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
     except:
         pass
     if overwrite:
@@ -168,7 +180,7 @@ def make_arcs_red(slit=0.5, overwrite=False):
     iraf.imcombine.gain = det_pars['red']['gain']
     arcs = iraf.hselect('red0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture, Stdout=1))
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
     except:
         pass
     if overwrite:
@@ -620,7 +632,7 @@ def velErrEstimate(specFname, N_samples=100):
 
 if __name__ == '__main__':
 
-	pass
+    pass
     #import DBSP
 
     # create dome flats and the master arc
