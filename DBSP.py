@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from pyraf import iraf
 import numpy as np
-import os, sys
+import os
 import pyfits
 import cosmics
 from mpfit import mpfit
@@ -19,7 +19,7 @@ iraf.onedspec(_doprint=0)
 # defaults
 # (blue trace is usually around 250-260)
 det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253}, \
-			'red':{'gain':2.8,'readnoise':8,'trace':166}}
+            'red':{'gain':2.8,'readnoise':8,'trace':166}}
 
 def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
     # Parameter values are passed in "p"
@@ -35,21 +35,21 @@ def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
 
 def createArcDome(side='blue',trace=None,arcslit=0.5,overwrite=False):
 
-	assert ((side == 'blue') or (side == 'red'))
-	if trace is None:
-		trace = det_pars[side]['trace']
-	
-	bias_subtract(side=side,trace=trace)
+    assert ((side == 'blue') or (side == 'red'))
+    if trace is None:
+        trace = det_pars[side]['trace']
+    
+    bias_subtract(side=side,trace=trace)
 
-	if side == blue:
-		fix_bad_column_blue()
+    if side == 'blue':
+        fix_bad_column_blue()
 
-	make_flats(side=side,overwrite=overwrite)
+    make_flats(side=side,overwrite=overwrite)
 
-	if side == blue:
-		make_arcs_blue(slit=arcslit,overwrite=overwrite)
-	else:
-		make_arcs_red(slit=arcslit,overwrite=overwrite)
+    if side == 'blue':
+        make_arcs_blue(slit=arcslit,overwrite=overwrite)
+    else:
+        make_arcs_red(slit=arcslit,overwrite=overwrite)
 
 def bias_subtract(side='blue',trace=None):
     # update the headers
@@ -64,10 +64,10 @@ def bias_subtract(side='blue',trace=None):
     iraf.ccdproc.fixpix = "no"
 #    iraf.ccdproc.fixfile = "../bluebpm"
     iraf.ccdproc.biassec = hdr['BSEC1']
-	if side == 'blue':
-		iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
-	else:
-		iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
+    if side == 'blue':
+        iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
+    else:
+        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
     iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.darkcor = "no"
     iraf.ccdproc.function = "spline3"
@@ -125,7 +125,7 @@ def make_flats(side='blue',overwrite=False):
                 iraf.response.order = 100
                 iraf.response.niterate = 0
                 iraf.response('temp', 'temp', 
-					'flat_%s_%s.fits' % (side, aperture), interactive="yes")
+                    'flat_%s_%s.fits' % (side, aperture), interactive="yes")
                 iraf.delete('temp.fits', verify="no")
 
                 # measure flat-field error from sigma images
@@ -144,62 +144,62 @@ def make_flats(side='blue',overwrite=False):
 
 def make_arcs_blue(slit=0.5, overwrite=False):
     # create the master arc with FeAr lamps
-	aperture = "{:3.1f}".format(slit)
+    aperture = "{:3.1f}".format(slit)
 
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['blue']['readnoise']
     iraf.imcombine.gain = det_pars['blue']['gain']
     arcs = iraf.hselect('blue0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture}, Stdout=1)
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture, Stdout=1))
     except:
         pass
     if overwrite:
         iraf.delete('FeAr_{aperture}.fits'.format(aperture=aperture), 
-			verify='no')
+            verify='no')
     iraf.imcombine(','.join(arcs), 'FeAr_{}'.format(aperture), reject="none")
 
 def make_arcs_red(slit=0.5, overwrite=False):
     # create the master arc with HeNeAr lamps
-	aperture = "{:3.1f}".format(slit)
+    aperture = "{:3.1f}".format(slit)
 
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['red']['readnoise']
     iraf.imcombine.gain = det_pars['red']['gain']
     arcs = iraf.hselect('red0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture}, Stdout=1)
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture, Stdout=1))
     except:
         pass
     if overwrite:
         iraf.delete('HeNeAr_{aperture}.fits'.format(aperture=aperture), 
-			verify='no')
+            verify='no')
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
 
 def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', redo='no', resize='yes', crval=4345, cdelt=-1.072):
 
-	assert ((side == 'blue') or (side == 'red'))
+    assert ((side == 'blue') or (side == 'red'))
 
     # bias subtraction using the overscan
-	# ECB is this duplicating the subtract_bias function?  maybe not for on-the-fly reductions
+    # ECB is this duplicating the subtract_bias function?  maybe not for on-the-fly reductions
     hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
     iraf.unlearn('ccdproc')
     iraf.ccdproc.zerocor = "no"
     iraf.ccdproc.flatcor = "no"
     iraf.ccdproc.fixpix = "no"
     iraf.ccdproc.biassec = hdr['BSEC1']
-	if side == 'blue':
-		iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
-	else:
-		iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
+    if side == 'blue':
+        iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
+    else:
+        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
     iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.darkcor = "no"
     iraf.ccdproc.function = "spline3"
     iraf.ccdproc.order = 3
     iraf.ccdproc.niterate = 3
     iraf.ccdproc('%s%04d.fits' % (side,imgID), 
-		flat="flat_%s_%s" % (side,hdr['APERTURE']), flatcor="yes")
+        flat="flat_%s_%s" % (side,hdr['APERTURE']), flatcor="yes")
 
     if (side == 'blue') and ('FIXPIX' not in hdr):
         iraf.fixpix('blue????.fits', "bluebpm")
@@ -247,10 +247,10 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.doslit.cdelt = cdelt
     iraf.doslit.nsum = 50
     iraf.doslit.clean = "yes"
-	if side == 'blue':
-		iraf.doslit.dispaxis = 2
-	else:
-		iraf.doslit.dispaxis = 1
+    if side == 'blue':
+        iraf.doslit.dispaxis = 2
+    else:
+        iraf.doslit.dispaxis = 1
     iraf.doslit.extras = "yes"
     iraf.doslit.lower = -1*int(round(iraf.doslit.width/2.))
     iraf.doslit.upper = int(round(iraf.doslit.width/2.))
@@ -274,10 +274,10 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     fwhm_arc = 2.8 # input FWHM of arc lines here
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
-	if side == 'blue':
-		iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
-	else:
-		iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
+    if side == 'blue':
+        iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
+    else:
+        iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10
     iraf.doslit.i_niterate = 3
@@ -299,20 +299,20 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
         iraf.fitprofs.invgain = 1.389
         iraf.delete('skyfit?.dat', verify='no')
 
-		sky_lines = {'blue':
-			{'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
-			'regs':['4025 4070', '4340 4380', '5440 5480', '5560 5590']}
-			'red':
-			{'wavelength':[6300.304,6863.955,7340.885,7821.503,8430.174,8827.096],
-			'regs':['6270 6320', '6840 6880', '7330 7355', '7810 7835','8420 8450','8800 8835']}}
-		
-		offsets = []
-		for i in range(len(sky_lines[side]['wavelength']):
-			iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
-				reg=sky_lines[side]['regs'][i], 
-				logfile='skyfit_{:s}_{:i1}.dat'.format(side,i), 
-				pos='dbsp_cal/skyline_{:s}_{:i1}.dat'.format(side,i), 
-				verbose='no')
+        sky_lines = {'blue':
+            {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
+            'regs':['4025 4070', '4340 4380', '5440 5480', '5560 5590']},
+            'red':
+            {'wavelength':[6300.304,6863.955,7340.885,7821.503,8430.174,8827.096],
+            'regs':['6270 6320', '6840 6880', '7330 7355', '7810 7835','8420 8450','8800 8835']}}
+        
+        offsets = []
+        for i in range(len(sky_lines[side]['wavelength'])):
+            iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
+                reg=sky_lines[side]['regs'][i], 
+                logfile='skyfit_{:s}_{:i1}.dat'.format(side,i), 
+                pos='dbsp_cal/skyline_{:s}_{:i1}.dat'.format(side,i), 
+                verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
         #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5440 5480', logfile='skyfit3.dat', pos='../skyline3.dat', verbose='no')
@@ -320,10 +320,13 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
 
         # dump useful data from skyfit?.dat (center width err_center err_width)
         #for i in [1,2,3,4]:
-            os.system('fgrep -v "#" skyfit_{side:s}_{num:i1}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i)
-			dat = np.genfromtxt('wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
-			offsets.append(data['center'] - sky_lines[side]['wavelength'][i]
-		
+            os.system('fgrep -v "#" skyfit_{side:s}_{num:i1}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i))
+            dat = np.genfromtxt('wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+            offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
+
+        offset_final = np.mean(offsets)
+        error_at_4750 = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/4750*299792.458 # uncertainty in km/s at 4750 A
+        
         # correct CRVAL1 value and add uncertainty in wavelength zero-point
         #lambda0 = np.array([4046.565, 4358.335, 5460.750, 5577.340])
         #dat = np.genfromtxt('wavelength_offset1.dat', usecols=(0,2), names="center, error")
@@ -337,9 +340,6 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
         #for i in np.arange(offsets[:,0].size):
         #    offset_final[i] = np.average(offsets[i])
         #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
-
-		offset_final = np.average(offsets)
-		error_at_4750 = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/4750*299792.458 # uncertainty in km/s at 4750 A
 
     # correct CRVAL1 and add uncertainty in km/s at 4750
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
@@ -608,7 +608,8 @@ def velErrEstimate(specFname, N_samples=100):
         rv_meanErr = 1./np.sqrt(sum_weights)
         rv_stats['name'][i] = name
         rv_stats['rv_mean'][i] = rv_mean
-        rv_stats['rv_meanErr'][i] = np.average(rvErr)
+        #rv_stats['rv_meanErr'][i] = np.average(rvErr)
+        rv_stats['rv_meanErr'][i] = rv_meanErr
         rv_stats['rv_best'][i] = rv[0]
         rv_stats['rv_bestErr'][i] = rvErr[0]
 
@@ -619,10 +620,11 @@ def velErrEstimate(specFname, N_samples=100):
 
 if __name__ == '__main__':
 
-    import DBSP
+	pass
+    #import DBSP
 
     # create dome flats and the master arc
-    DBSP.createArcDome(overwrite=True)
+    #DBSP.createArcDome(overwrite=True)
 
     # process one science exposure
-    DBSP.extract1D_blue(61, redo="yes")
+    #DBSP.extract1D_blue(61, redo="yes")
