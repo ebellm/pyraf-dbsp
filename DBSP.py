@@ -8,6 +8,9 @@ from mpfit import mpfit
 import copy
 from glob import glob
 
+# directory where the reduction code is stored
+BASE_DIR = '/home/ebellm/observing/reduction/dbsp/'
+
 # load IRAF packages
 iraf.noao(_doprint=0)
 iraf.imred(_doprint=0)
@@ -192,6 +195,8 @@ def make_arcs_red(slit=0.5, overwrite=False):
 def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', redo='no', resize='yes', crval=4345, cdelt=-1.072):
 
     assert ((side == 'blue') or (side == 'red'))
+    if trace is None:
+        trace = det_pars[side]['trace']
 
     # bias subtraction using the overscan
     # ECB is this duplicating the subtract_bias function?  maybe not for on-the-fly reductions
@@ -287,6 +292,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
+        #iraf.doslit.coordlist = BASE_DIR + "dbsp_cal/FeAr_dbsp.dat"
         iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
     else:
         iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
@@ -322,8 +328,8 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
         for i in range(len(sky_lines[side]['wavelength'])):
             iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
                 reg=sky_lines[side]['regs'][i], 
-                logfile='skyfit_{:s}_{:i1}.dat'.format(side,i), 
-                pos='dbsp_cal/skyline_{:s}_{:i1}.dat'.format(side,i), 
+                logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
+                pos='dbsp_cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
                 verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
         #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
@@ -332,8 +338,8 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
 
         # dump useful data from skyfit?.dat (center width err_center err_width)
         #for i in [1,2,3,4]:
-            os.system('fgrep -v "#" skyfit_{side:s}_{num:i1}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i))
-            dat = np.genfromtxt('wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+            os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
+            dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
             offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
 
         offset_final = np.mean(offsets)
