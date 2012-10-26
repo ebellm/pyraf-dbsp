@@ -179,6 +179,8 @@ def make_arcs_red(slit=0.5, overwrite=False):
 
 def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', redo='no', resize='yes', crval=4345, cdelt=-1.072):
 
+	assert ((side == 'blue') or (side == 'red'))
+
     # bias subtraction using the overscan
 	# ECB is this duplicating the subtract_bias function?  maybe not for on-the-fly reductions
     hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
@@ -245,7 +247,10 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.doslit.cdelt = cdelt
     iraf.doslit.nsum = 50
     iraf.doslit.clean = "yes"
-    iraf.doslit.dispaxis = 2
+	if side == 'blue':
+		iraf.doslit.dispaxis = 2
+	else:
+		iraf.doslit.dispaxis = 1
     iraf.doslit.extras = "yes"
     iraf.doslit.lower = -1*int(round(iraf.doslit.width/2.))
     iraf.doslit.upper = int(round(iraf.doslit.width/2.))
@@ -269,7 +274,10 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     fwhm_arc = 2.8 # input FWHM of arc lines here
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
-    iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
+	if side == 'blue':
+		iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
+	else:
+		iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10
     iraf.doslit.i_niterate = 3
@@ -290,28 +298,48 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
         iraf.fitprofs.sigma0 = 2.5
         iraf.fitprofs.invgain = 1.389
         iraf.delete('skyfit?.dat', verify='no')
-        iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
-        iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
-        iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5440 5480', logfile='skyfit3.dat', pos='../skyline3.dat', verbose='no')
-        iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5560 5590', logfile='skyfit4.dat', pos='../skyline.dat', verbose='no')
+
+		sky_lines = {'blue':
+			{'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
+			'regs':['4025 4070', '4340 4380', '5440 5480', '5560 5590']}
+			'red':
+			{'wavelength':[6300.304,6863.955,7340.885,7821.503,8430.174,8827.096],
+			'regs':['6270 6320', '6840 6880', '7330 7355', '7810 7835','8420 8450','8800 8835']}}
+		
+		offsets = []
+		for i in range(len(sky_lines[side]['wavelength']):
+			iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
+				reg=sky_lines[side]['regs'][i], 
+				logfile='skyfit_{:s}_{:i1}.dat'.format(side,i), 
+				pos='dbsp_cal/skyline_{:s}_{:i1}.dat'.format(side,i), 
+				verbose='no')
+        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
+        #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
+        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5440 5480', logfile='skyfit3.dat', pos='../skyline3.dat', verbose='no')
+        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5560 5590', logfile='skyfit4.dat', pos='../skyline.dat', verbose='no')
 
         # dump useful data from skyfit?.dat (center width err_center err_width)
-        for i in [1,2,3,4]:
-            os.system('fgrep -v "#" skyfit%s.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset%s.dat' % (i, i))
-    
+        #for i in [1,2,3,4]:
+            os.system('fgrep -v "#" skyfit_{side:s}_{num:i1}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i)
+			dat = np.genfromtxt('wavelength_offset_{side:s}_{num:i1}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+			offsets.append(data['center'] - sky_lines[side]['wavelength'][i]
+		
         # correct CRVAL1 value and add uncertainty in wavelength zero-point
-        lambda0 = np.array([4046.565, 4358.335, 5460.750, 5577.340])
-        dat = np.genfromtxt('wavelength_offset1.dat', usecols=(0,2), names="center, error")
-        offsets = np.zeros((dat.size,4))
-        for i in np.arange(4):
-            dat = np.genfromtxt('wavelength_offset%d.dat' % int(i+1), usecols=(0,2), names="center, error")
-            offsets[:, i] = dat["center"] - lambda0[i] # subtract this from CRVAL1
+        #lambda0 = np.array([4046.565, 4358.335, 5460.750, 5577.340])
+        #dat = np.genfromtxt('wavelength_offset1.dat', usecols=(0,2), names="center, error")
+        #offsets = np.zeros((dat.size,4))
+        #for i in np.arange(4):
+        #    dat = np.genfromtxt('wavelength_offset%d.dat' % int(i+1), usecols=(0,2), names="center, error")
+        #    offsets[:, i] = dat["center"] - lambda0[i] # subtract this from CRVAL1
 
-        offset_final = np.zeros(offsets[:,0].size)
-        error_at_4750 = np.zeros(offsets[:,0].size)
-        for i in np.arange(offsets[:,0].size):
-            offset_final[i] = np.average(offsets[i])
-            error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
+        #offset_final = np.zeros(offsets[:,0].size)
+        #error_at_4750 = np.zeros(offsets[:,0].size)
+        #for i in np.arange(offsets[:,0].size):
+        #    offset_final[i] = np.average(offsets[i])
+        #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
+
+		offset_final = np.average(offsets)
+		error_at_4750 = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/4750*299792.458 # uncertainty in km/s at 4750 A
 
     # correct CRVAL1 and add uncertainty in km/s at 4750
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
@@ -332,8 +360,8 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=4, format="onedspec")
     # correct wavelength calibration using sky lines
     if hdr['EXPTIME'] > 180:
-        iraf.specshift('%s%04d.0001' % (side,imgID), '%.3f' % (-offset_final[0]))
-        iraf.specshift('%s%04d.3001' % (side,imgID), '%.3f' % (-offset_final[0]))
+        iraf.specshift('%s%04d.0001' % (side,imgID), '%.3f' % (-offset_final))
+        iraf.specshift('%s%04d.3001' % (side,imgID), '%.3f' % (-offset_final))
 
     # output to text files
     hdr_arc = pyfits.getheader('%s.ms.fits' % os.path.splitext(arc)[0])
