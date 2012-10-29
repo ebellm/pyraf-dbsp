@@ -329,7 +329,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
             iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
                 reg=sky_lines[side]['regs'][i], 
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
-                pos='dbsp_cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
+                pos=BASE_DIR + 'dbsp_cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
                 verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
         #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
@@ -363,7 +363,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
     hdr = f[0].header
     if hdr['EXPTIME'] > 180:
-        f[0].header.update('VERR', '%.2f' % error_at_4750[0], 'Uncertainty in km/s at 4750 A')
+        f[0].header.update('VERR', '%.2f' % error_at_4750, 'Uncertainty in km/s at 4750 A')
     else:
         f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at 4750 A')
     f.writeto('%s%04d.ms.fits' % (side,imgID), clobber=True)
@@ -406,7 +406,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     # statistics
     hdr = pyfits.getheader('%s%04d.spec.fits' % (side,imgID))
     if hdr['EXPTIME'] > 180:
-        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at 4750 A." % (offset_final[0], error_at_4750[0])
+        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at 4750 A." % (offset_final, error_at_4750)
     wave1 = np.int(np.floor((3990 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     wave2 = np.int(np.floor((4010 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
