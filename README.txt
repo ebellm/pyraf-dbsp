@@ -1,0 +1,98 @@
+todos:  
+fit HeNeAr line list (add reddest lines; use c to find bad lines & comment
+	them out?)
+generate all arcs at once
+flux spectra ("standards" in doslit)
+combine red & blue sides
+fix stats code for red side (quote at midpoint, 7500 for red; check if
+	dispersion is included)
+
+(calculate gain & readnoise from cal files)
+
+---
+
+cd to your data directory
+mdkir raw
+cp *.fits raw
+
+ipython
+
+%run ~/observing/reduction/dbsp/DBSP.py
+
+change the names of any files you don't want to process (use your log):
+mark_bad('blue',[41,43,50])
+
+createArcDome(side = 'blue', overwrite=True)
+
+	fit normalization spectrum for temp interactively?
+		> click in graphics window and hit ? for a list of commands
+		(see response section of
+		http://iraf.noao.edu/tutorials/doslit/doslit.html)
+		This function fitting step uses a standard IRAF tool called icfit for
+		interactive curve fitting. Within this mode you can type '?' to get a
+		list of the commands. Typically one would use only :function and :order
+		to change the function and order of the fit, and 'f' to cause the fit
+		to be redone after changing any fitting parameters. Feel free to
+		experiment and when you are done and have an acceptable fit exit with
+		'q'. 
+
+		(a spline fit is standard, so typing 'no' in the terminal is probably
+		okay) (note that commands in the graphics window typically require you
+		to click to focus; then you may have to click back to type responses in
+		the terminal.) 
+
+createArcDome(side = 'red', overwrite=True)
+
+extract1D(61,side='blue',redo='yes')
+
+	options: 
+		redo: 
+			generates new wavelength solution.  Otherwise, use stored
+			version for specified arc file
+		arc:
+			specifies arc file to use for wavelength solution.  
+			Default is 0.5" FeAr (blue) and HeNeAr (red)
+		crval, cdelt:
+			specifies central wavelengths and dispersions.  Loads default
+			values for the "standard" PTF setup [TODO: describe], but 
+			it is crucial to specify these correctly if using a different
+			setup.
+			
+
+	edit apertures for (file)? 
+		'yes', in terminal
+		again, see http://iraf.noao.edu/tutorials/doslit/doslit.html
+		(http://stsdas.stsci.edu/gethelp/HelpSys.html better for parameter name
+		search)
+		(http://www.twilightlandscapes.com/IRAFtutorial/IRAFintro_06.html)
+
+	fit traced positions interactively?
+		'yes' in window--brings up icfit again
+		? for help
+		:order # to change fit order.  default of 4 is probably fine; don't
+		worry about excursions on the faint ends of the trace
+		d to delete any points biasing the fit
+		f to refit
+		(aiming for RMS < 0.07 or so)
+
+	autoidentify
+		get a plot with labelled lines
+		w x to zoom in
+		m to specify a line (with cursor hovering over it): enter the wavelength in angstroms
+		w a to zoom out
+		do it for a second line (may already be identified)
+		f to fit
+		d to delete outliers
+		q to return to spectrum
+		l or y to ask for more lines
+		f to fit again
+		q twice to save solution
+
+	change wavelength coordinate assignments?
+		sets wavelength range & binning
+			sensible defaults: 5500-10000, 1.53 red
+		
+
+colon comands: click in grey bar at bottom of graphics window
+help: click graphics window, hit ?
+window commands: click graphics window, type w ?
