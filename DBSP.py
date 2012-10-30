@@ -21,8 +21,10 @@ iraf.onedspec(_doprint=0)
 
 # defaults
 # (blue trace is usually around 250-260)
-det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253}, \
-            'red':{'gain':2.8,'readnoise':8,'trace':166}}
+det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
+                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}, 
+            'red':{'gain':2.8,'readnoise':8,'trace':166,
+                    'crval'=7502, 'cdelt'=1.530, 'arc':'HeNeAr_0.5.fits'}}
 
 def mark_bad(side,numbers):
     assert ((side == 'blue') or (side == 'red'))
@@ -192,14 +194,23 @@ def make_arcs_red(slit=0.5, overwrite=False):
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
 
-def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', redo='no', resize='yes', crval=4345, cdelt=-1.072):
+def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', crval=None, cdelt=None):
 
     assert ((side == 'blue') or (side == 'red'))
+
     if trace is None:
         trace = det_pars[side]['trace']
 
+    if arc is None:
+        arc = det_pars[side]['arc']
+
+    if crval is None:
+        crval = det_pars[side]['crval']
+
+    if cdelt is None:
+        cdelt = det_pars[side]['cdelt']
+
     # bias subtraction using the overscan
-    # ECB is this duplicating the subtract_bias function?  maybe not for on-the-fly reductions
     hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
     iraf.unlearn('ccdproc')
     iraf.ccdproc.zerocor = "no"
@@ -292,7 +303,6 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
-        #iraf.doslit.coordlist = BASE_DIR + "dbsp_cal/FeAr_dbsp.dat"
         iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
     else:
         iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
@@ -303,6 +313,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
     iraf.doslit.linearize = "yes"
 
     # extract 1D spectrum
+    print arc, iraf.doslit.crval, iraf.doslit.cdelt
     iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
@@ -341,6 +352,7 @@ def extract1D(imgID, side='blue', trace=None, arc='FeAr_0.5.fits', splot='no', r
             os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
             dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
             offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
+            print offsets
 
         offset_final = np.mean(offsets)
         error_at_4750 = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/4750*299792.458 # uncertainty in km/s at 4750 A
