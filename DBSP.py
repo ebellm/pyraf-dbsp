@@ -24,7 +24,7 @@ iraf.onedspec(_doprint=0)
 det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
                     'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}, 
             'red':{'gain':2.8,'readnoise':8,'trace':166,
-                    'crval'=7502, 'cdelt'=1.530, 'arc':'HeNeAr_0.5.fits'}}
+                    'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}}
 
 def mark_bad(side,numbers):
     assert (side in ['blue','red'])
@@ -197,9 +197,9 @@ def make_arcs_red(slit=0.5, overwrite=False):
 def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', crval=None, cdelt=None):
 
     assert (side in ['blue','red'])
-	assert (splot in ['yes','no'])
-	assert (redo in ['yes','no'])
-	assert (resize in ['yes','no'])
+    assert (splot in ['yes','no'])
+    assert (redo in ['yes','no'])
+    assert (resize in ['yes','no'])
 
     if trace is None:
         trace = det_pars[side]['trace']
@@ -243,8 +243,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     if 'COSMIC' not in hdr and hdr['EXPTIME'] > 60:
         array, header = pyfits.getdata('%s%04d.fits' % (side,imgID), header=True)
         c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
-		readnoise=det_pars[side]['readnoise'], 
-		sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
+        readnoise=det_pars[side]['readnoise'], 
+        sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
         c.run(maxiter = 3)
         header.update('COSMIC', 1, '1 if we ran LA Cosmic')
         pyfits.writeto('%s%04d.fits' % (side,imgID), c.cleanarray, header, clobber=True)
@@ -265,8 +265,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         if 'COSMIC' not in hdr_arc:
             array, header = pyfits.getdata(arc, header=True)
             c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
-			readnoise=det_pars[side]['readnoise'], 
-			sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
+            readnoise=det_pars[side]['readnoise'], 
+            sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
             c.run(maxiter = 3)
             header.update('COSMIC', 1, '1 if we ran LA Cosmic')
             pyfits.writeto(arc, c.cleanarray, header, clobber=True)
@@ -310,9 +310,11 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
-        iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
+        #iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
+        iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_FeAr_dbsp.dat'
     else:
-        iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
+        #iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
+        iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_HeNeAr_dbsp.dat'
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10
     iraf.doslit.i_niterate = 3

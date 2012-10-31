@@ -77,13 +77,19 @@ extract1D(61,side='blue',redo='yes')
 
 	autoidentify
 		get a plot with labelled lines
+		f to fit
+		j to switch to residuals plot
+		d to delete outliers
+			good RMS is < 0.07 or so
+		q to return to spectrum
+
+
 		w x to zoom in
 		m to specify a line (with cursor hovering over it): enter the wavelength in angstroms
 		w a to zoom out
 		do it for a second line (may already be identified)
 		f to fit
 		d to delete outliers
-		q to return to spectrum
 		l or y to ask for more lines
 		f to fit again
 		q twice to save solution
