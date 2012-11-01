@@ -193,8 +193,46 @@ def make_arcs_red(slit=0.5, overwrite=False):
             verify='no')
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
+def preprocess_image(filename, side='blue'):
+    """bias subtract, add header info if needed, and remove cosmic rays"""
 
-def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', crval=None, cdelt=None):
+    # bias subtraction using the overscan
+    hdr = pyfits.getheader(filename)
+    iraf.unlearn('ccdproc')
+    iraf.ccdproc.zerocor = "no"
+    iraf.ccdproc.flatcor = "no"
+    iraf.ccdproc.fixpix = "no"
+    iraf.ccdproc.biassec = hdr['BSEC1']
+    if side == 'blue':
+        iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
+    else:
+        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
+    iraf.ccdproc.ccdtype = ""
+    iraf.ccdproc.darkcor = "no"
+    iraf.ccdproc.function = "spline3"
+    iraf.ccdproc.order = 3
+    iraf.ccdproc.niterate = 3
+    iraf.ccdproc(filename,
+        flat="flat_%s_%s" % (side,hdr['APERTURE']), flatcor="yes")
+
+    if (side == 'blue') and ('FIXPIX' not in hdr):
+        iraf.fixpix('blue????.fits', "bluebpm")
+
+    if 'OBSERVAT' not in hdr:
+        # update the headers
+        iraf.asthedit(filename, '/home/bsesar/opt/python/DBSP.hdr')
+
+    # remove cosmic rays with LA Cosmic
+    if 'COSMIC' not in hdr and hdr['EXPTIME'] > 60:
+        array, header = pyfits.getdata(filename, header=True)
+        c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
+        readnoise=det_pars[side]['readnoise'], 
+        sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
+        c.run(maxiter = 3)
+        header.update('COSMIC', 1, '1 if we ran LA Cosmic')
+        pyfits.writeto(filename, c.cleanarray, header, clobber=True)
+
+def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no', redo='no', resize='yes', crval=None, cdelt=None):
 
     assert (side in ['blue','red'])
     assert (splot in ['yes','no'])
@@ -213,63 +251,16 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     if cdelt is None:
         cdelt = det_pars[side]['cdelt']
 
-    # bias subtraction using the overscan
-    hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
-    iraf.unlearn('ccdproc')
-    iraf.ccdproc.zerocor = "no"
-    iraf.ccdproc.flatcor = "no"
-    iraf.ccdproc.fixpix = "no"
-    iraf.ccdproc.biassec = hdr['BSEC1']
-    if side == 'blue':
-        iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
-    else:
-        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
-    iraf.ccdproc.ccdtype = ""
-    iraf.ccdproc.darkcor = "no"
-    iraf.ccdproc.function = "spline3"
-    iraf.ccdproc.order = 3
-    iraf.ccdproc.niterate = 3
-    iraf.ccdproc('%s%04d.fits' % (side,imgID), 
-        flat="flat_%s_%s" % (side,hdr['APERTURE']), flatcor="yes")
+    # preprocess the science image
+    preprocess_image('%s%04d.fits' % (side,imgID), side=side)
 
-    if (side == 'blue') and ('FIXPIX' not in hdr):
-        iraf.fixpix('blue????.fits', "bluebpm")
+    # preprocess the arc image
+    preprocess_image(arc, side=side)
 
-    if 'OBSERVAT' not in hdr:
-        # update the headers
-        iraf.asthedit('%s%04d' % (side,imgID), '/home/bsesar/opt/python/DBSP.hdr')
-
-    # remove cosmic rays with LA Cosmic
-    if 'COSMIC' not in hdr and hdr['EXPTIME'] > 60:
-        array, header = pyfits.getdata('%s%04d.fits' % (side,imgID), header=True)
-        c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
-        readnoise=det_pars[side]['readnoise'], 
-        sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
-        c.run(maxiter = 3)
-        header.update('COSMIC', 1, '1 if we ran LA Cosmic')
-        pyfits.writeto('%s%04d.fits' % (side,imgID), c.cleanarray, header, clobber=True)
-
-    # process the arc image
-    if arc != 'FeAr_0.5.fits':
-        iraf.ccdproc(arc)
-        hdr_arc = pyfits.getheader(arc)
-
-        if 'FIXPIX' not in hdr_arc:
-            iraf.fixpix(arc, "%sbpm")
-
-        if 'OBSERVAT' not in hdr_arc:
-            # update the headers
-            iraf.asthedit(arc, '/home/bsesar/opt/python/DBSP.hdr')
-
-        # remove cosmic rays with LA Cosmic
-        if 'COSMIC' not in hdr_arc:
-            array, header = pyfits.getdata(arc, header=True)
-            c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
-            readnoise=det_pars[side]['readnoise'], 
-            sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000)
-            c.run(maxiter = 3)
-            header.update('COSMIC', 1, '1 if we ran LA Cosmic')
-            pyfits.writeto(arc, c.cleanarray, header, clobber=True)
+    # preprocess the standard, if given
+    if standard is not None:
+        standard_filename = '%s%04d.fits' % (side,standard)
+        preprocess_image(standard_filename, side=side)
 
     # set up doslit
     fwhm = 4.6
@@ -320,6 +311,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.i_niterate = 3
     iraf.doslit.addfeatures = 'no'
     iraf.doslit.linearize = "yes"
+    if standard is not None:
+        iraf.doslit.standard = standard_filename
 
     # extract 1D spectrum
     print arc, iraf.doslit.crval, iraf.doslit.cdelt
@@ -335,7 +328,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         iraf.fitprofs.nerrsample = 100
         iraf.fitprofs.sigma0 = 2.5
         iraf.fitprofs.invgain = 1.389
-        iraf.delete('skyfit?.dat', verify='no')
+        iraf.delete('skyfit*.dat', verify='no')
 
         sky_lines = {'blue':
             {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
@@ -360,11 +353,14 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         #for i in [1,2,3,4]:
             os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
             dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+            assert (dat['center'].size == 1)
             offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
-            print offsets
+        print offsets
 
         offset_final = np.mean(offsets)
-        error_at_4750 = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/4750*299792.458 # uncertainty in km/s at 4750 A
+        midpoint_loc = {'blue':4750,'red':7400}
+        error_at_mid = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/ \
+            midpoint_loc[side]*299792.458 # uncertainty in km/s at 4750 A
         
         # correct CRVAL1 value and add uncertainty in wavelength zero-point
         #lambda0 = np.array([4046.565, 4358.335, 5460.750, 5577.340])
@@ -384,9 +380,9 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
     hdr = f[0].header
     if hdr['EXPTIME'] > 180:
-        f[0].header.update('VERR', '%.2f' % error_at_4750, 'Uncertainty in km/s at 4750 A')
+        f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     else:
-        f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at 4750 A')
+        f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     f.writeto('%s%04d.ms.fits' % (side,imgID), clobber=True)
     f.close()
 
@@ -418,8 +414,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.imarith('%s%04d.spec.fits' % (side,imgID), '/', '%s%04d.err.fits' % (side,imgID), '%s%04d.snr.fits' % (side,imgID))
 
     # cleanup
-    iraf.delete('skyfit?.dat', verify='no')
-    iraf.delete('wavelength_offset?.dat', verify='no')
+    iraf.delete('skyfit*.dat', verify='no')
+    iraf.delete('wavelength_offset*.dat', verify='no')
     iraf.delete('%s%04d.ms.fits' % (side,imgID), verify="no")
     iraf.delete('%s%04d.0001.fits' % (side,imgID), verify="no")
     iraf.delete('%s%04d.3001.fits' % (side,imgID), verify="no")
@@ -427,11 +423,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # statistics
     hdr = pyfits.getheader('%s%04d.spec.fits' % (side,imgID))
     if hdr['EXPTIME'] > 180:
-        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at 4750 A." % (offset_final, error_at_4750)
-    wave1 = np.int(np.floor((3990 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
-    wave2 = np.int(np.floor((4010 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
+        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %f A." % (offset_final, error_at_mid,midpoint_loc[side])
+    snr_loc = {'blue':4000,'red':7000}
+    wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
+    wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
-    print "SNR = %.1f at 4000 A" % np.float(s[0])
+    print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
 
 def combineSpectra(specList, outSpecFname, use_ratios=False):
     """Scales input 1D spectra onto the same scale
