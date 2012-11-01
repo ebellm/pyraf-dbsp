@@ -193,14 +193,20 @@ def make_arcs_red(slit=0.5, overwrite=False):
             verify='no')
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
-def preprocess_image(filename, side='blue'):
-    """bias subtract, add header info if needed, and remove cosmic rays"""
+def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
+    """bias subtract, flat correct, 
+    add header info if needed, and remove cosmic rays"""
+
+    assert(flatcor in ['yes','no'])
+
+    if trace is None:
+        trace = det_pars[side]['trace']
 
     # bias subtraction using the overscan
     hdr = pyfits.getheader(filename)
     iraf.unlearn('ccdproc')
     iraf.ccdproc.zerocor = "no"
-    iraf.ccdproc.flatcor = "no"
+    iraf.ccdproc.flatcor = flatcor
     iraf.ccdproc.fixpix = "no"
     iraf.ccdproc.biassec = hdr['BSEC1']
     if side == 'blue':
@@ -213,7 +219,7 @@ def preprocess_image(filename, side='blue'):
     iraf.ccdproc.order = 3
     iraf.ccdproc.niterate = 3
     iraf.ccdproc(filename,
-        flat="flat_%s_%s" % (side,hdr['APERTURE']), flatcor="yes")
+        flat="flat_%s_%s" % (side,hdr['APERTURE']))
 
     if (side == 'blue') and ('FIXPIX' not in hdr):
         iraf.fixpix('blue????.fits', "bluebpm")
@@ -252,15 +258,15 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
         cdelt = det_pars[side]['cdelt']
 
     # preprocess the science image
-    preprocess_image('%s%04d.fits' % (side,imgID), side=side)
+    preprocess_image('%s%04d.fits' % (side,imgID), side=side, trace=trace)
 
     # preprocess the arc image
-    preprocess_image(arc, side=side)
+    preprocess_image(arc, side=side, trace=trace, flatcor='no')
 
     # preprocess the standard, if given
     if standard is not None:
         standard_filename = '%s%04d.fits' % (side,standard)
-        preprocess_image(standard_filename, side=side)
+        preprocess_image(standard_filename, side=side, trace=trace)
 
     # set up doslit
     fwhm = 4.6
@@ -311,14 +317,16 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
     iraf.doslit.i_niterate = 3
     iraf.doslit.addfeatures = 'no'
     iraf.doslit.linearize = "yes"
-    if standard is not None:
-        iraf.doslit.standard = standard_filename
 
     # extract 1D spectrum
     print arc, iraf.doslit.crval, iraf.doslit.cdelt
-    iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
+    if standard is not None:
+        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize,standards=standard_filename)
+    else:
+        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
+    hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
     if hdr['EXPTIME'] > 180:
         iraf.unlearn('scopy')
         iraf.delete('%s%04d.2001.fits' % (side,imgID), verify='no')
