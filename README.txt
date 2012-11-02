@@ -96,7 +96,13 @@ extract1D(61,side='blue',redo='yes')
 
 	change wavelength coordinate assignments?
 		sets wavelength range & binning
-			sensible defaults: 5500-10000, 1.53 red
+			sensible defaults: 5500-10000, 1.525 red
+	
+	standards:
+		? for list
+		sensfunc is the fitting function
+
+
 		
 
 colon comands: click in grey bar at bottom of graphics window

@@ -320,16 +320,15 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
 
     # extract 1D spectrum
     print arc, iraf.doslit.crval, iraf.doslit.cdelt
-    if standard is not None:
-        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize,standards=standard_filename)
-    else:
-        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
+    iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
 
+    # measure shift with sky lines *before* fluxing to avoid floating point errors
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
     hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
     if hdr['EXPTIME'] > 180:
         iraf.unlearn('scopy')
         iraf.delete('%s%04d.2001.fits' % (side,imgID), verify='no')
+        # background band
         iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=3, format="onedspec")
         iraf.unlearn('fitprofs')
         iraf.fitprofs.gfwhm = fwhm_arc
@@ -384,12 +383,20 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
         #    offset_final[i] = np.average(offsets[i])
         #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
 
-    # correct CRVAL1 and add uncertainty in km/s at 4750
+    # now flux
+    if standard is not None:
+        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, 
+        redo='no', resize=resize,standards=standard_filename,fluxcal='yes')
+
+    # add wavelength shifts/ uncertainty in km/s to headers
+    # (CRVAL1 doesn't seem to apply the shift correctly?)
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
     hdr = f[0].header
     if hdr['EXPTIME'] > 180:
+        f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     else:
+        f[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     f.writeto('%s%04d.ms.fits' % (side,imgID), clobber=True)
     f.close()
@@ -401,6 +408,7 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
     iraf.delete('%s%04d.3001.fits' % (side,imgID), verify='no')
     iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=1, format="onedspec")
     iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=4, format="onedspec")
+
     # correct wavelength calibration using sky lines
     if hdr['EXPTIME'] > 180:
         iraf.specshift('%s%04d.0001' % (side,imgID), '%.3f' % (-offset_final))
