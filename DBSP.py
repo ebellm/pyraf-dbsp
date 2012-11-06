@@ -238,7 +238,34 @@ def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
         header.update('COSMIC', 1, '1 if we ran LA Cosmic')
         pyfits.writeto(filename, c.cleanarray, header, clobber=True)
 
-def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no', redo='no', resize='yes', crval=None, cdelt=None):
+def store_standards(imgID_list, side='blue', trace=None, 
+    arc=None, splot='no', redo='no', resize='yes', 
+    crval=None, cdelt=None):
+
+    # first extract all the standard spectra
+    for i, imgID in enumerate(imgID_list):
+        
+        # only redo the first one so we don't have to keep re-defining the
+        # dispersion solution
+        if i == 0:
+            redo = redo
+        else:
+            redo = 'no'
+        
+        extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
+            redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt)
+
+    iraf.unlearn('standard')
+    iraf.standard.caldir = "onedstds$iidscal/"
+    # try these one at a time
+    for imgID in imgID_list:
+        # use the extracted spectrum!
+        iraf.standard('%s%04d.spec.fits' % (side,imgID))
+    iraf.sensfunc()
+
+
+
+def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', flux=False, crval=None, cdelt=None):
 
     assert (side in ['blue','red'])
     assert (splot in ['yes','no'])
@@ -262,11 +289,6 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
 
     # preprocess the arc image
     preprocess_image(arc, side=side, trace=trace, flatcor='no')
-
-    # preprocess the standard, if given
-    if standard is not None:
-        standard_filename = '%s%04d.fits' % (side,standard)
-        preprocess_image(standard_filename, side=side, trace=trace)
 
     # set up doslit
     fwhm = 4.6
@@ -325,6 +347,7 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
     # measure shift with sky lines *before* fluxing to avoid floating point errors
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
     hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
+    midpoint_loc = {'blue':4750,'red':7400}
     if hdr['EXPTIME'] > 180:
         iraf.unlearn('scopy')
         iraf.delete('%s%04d.2001.fits' % (side,imgID), verify='no')
@@ -365,7 +388,6 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
         print offsets
 
         offset_final = np.mean(offsets)
-        midpoint_loc = {'blue':4750,'red':7400}
         error_at_mid = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/ \
             midpoint_loc[side]*299792.458 # uncertainty in km/s at 4750 A
         
@@ -384,9 +406,9 @@ def extract1D(imgID, side='blue', standard=None, trace=None, arc=None, splot='no
         #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
 
     # now flux
-    if standard is not None:
+    if flux:
         iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, 
-        redo='no', resize=resize,standards=standard_filename,fluxcal='yes')
+        redo='no', resize=resize,fluxcal='yes')
 
     # add wavelength shifts/ uncertainty in km/s to headers
     # (CRVAL1 doesn't seem to apply the shift correctly?)

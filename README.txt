@@ -19,6 +19,7 @@ ipython
 
 %run ~/observing/reduction/dbsp/DBSP.py
 
+
 change the names of any files you don't want to process (use your log):
 mark_bad('blue',[41,43,50])
 
@@ -100,11 +101,32 @@ extract1D(61,side='blue',redo='yes')
 	
 	standards:
 		? for list
+			or iraf.page('onedstds$README')
+		all of the commonly-used ones are in onedstds#iidscal:
+			g191b2b
+			feige34
+			bd332642
+			bd284211
+		edit bandpasses:
+			(choose smooth regions)
+			a a (with mouse pointer at two positions) to place new bands
+			d to delete them
+			q to quit and save
+
 		sensfunc is the fitting function
+			? for help
+			s over graphs to eliminate mean shifts due to non-photometric 
+				conditions (toggles)
+
 
 
 		
 
+
 colon comands: click in grey bar at bottom of graphics window
 help: click graphics window, hit ?
 window commands: click graphics window, type w ?
+
+iraf.help('doslit')
+iraf.dir('onedstds$')
+iraf.type('onedstds$README') (or iraf.page)
