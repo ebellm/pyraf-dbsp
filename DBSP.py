@@ -240,27 +240,32 @@ def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
 
 def store_standards(imgID_list, side='blue', trace=None, 
     arc=None, splot='no', redo='no', resize='yes', 
-    crval=None, cdelt=None):
+    crval=None, cdelt=None, extract=True):
 
     # first extract all the standard spectra
-    for i, imgID in enumerate(imgID_list):
-        
-        # only redo the first one so we don't have to keep re-defining the
-        # dispersion solution
-        if i == 0:
-            redo = redo
-        else:
-            redo = 'no'
-        
-        extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
-            redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt)
+    if extract:
+        for i, imgID in enumerate(imgID_list):
+            
+            # only redo the first one so we don't have to keep re-defining the
+            # dispersion solution
+            if i == 0:
+                redo = redo
+            else:
+                redo = 'no'
+            
+            extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
+                redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt)
 
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
+    iraf.standard.output = 'std-{}'.format(side)
     # try these one at a time
     for imgID in imgID_list:
         # use the extracted spectrum!
         iraf.standard('%s%04d.spec.fits' % (side,imgID))
+    iraf.unlearn('sensfunc')
+    iraf.sensfunc.standards = 'std-{}'.format(side)
+    iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
     iraf.sensfunc()
 
 
@@ -405,11 +410,6 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         #    offset_final[i] = np.average(offsets[i])
         #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
 
-    # now flux
-    if flux:
-        iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, 
-        redo='no', resize=resize,fluxcal='yes')
-
     # add wavelength shifts/ uncertainty in km/s to headers
     # (CRVAL1 doesn't seem to apply the shift correctly?)
     f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
@@ -435,6 +435,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     if hdr['EXPTIME'] > 180:
         iraf.specshift('%s%04d.0001' % (side,imgID), '%.3f' % (-offset_final))
         iraf.specshift('%s%04d.3001' % (side,imgID), '%.3f' % (-offset_final))
+
+    # flux, if requested
+    if flux:
+        iraf.unlearn('calibrate')
+        iraf.calibrate('%s%04d.msfits' % (side,imgID),
+            sensitivity='sens-{}'.format(side))
 
     # output to text files
     hdr_arc = pyfits.getheader('%s.ms.fits' % os.path.splitext(arc)[0])

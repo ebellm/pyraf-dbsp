@@ -81,6 +81,8 @@ extract1D(61,side='blue',redo='yes')
 		f to fit
 		j to switch to residuals plot
 		d to delete outliers
+			blue side can be bad below 4000:  delete all the points with d,
+				hit q, f, l (to reidentify lines)
 			good RMS is < 0.07 or so
 		q to return to spectrum
 
