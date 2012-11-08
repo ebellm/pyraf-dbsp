@@ -439,7 +439,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # flux, if requested
     if flux:
         iraf.unlearn('calibrate')
-        iraf.calibrate('%s%04d.msfits' % (side,imgID),
+        iraf.calibrate('%s%04d.ms.fits' % (side,imgID),
             sensitivity='sens-{}'.format(side))
 
     # output to text files
