@@ -439,8 +439,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # flux, if requested
     if flux:
         iraf.unlearn('calibrate')
-        iraf.calibrate('%s%04d.ms.fits' % (side,imgID),
-            sensitivity='sens-{}'.format(side))
+        rootname = '%s%04d' % (side,imgID)
+        iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
+        iraf.calibrate.output = ""
+        iraf.calibrate.sensitivity = sensitivity='sens-{}'.format(side)
+        iraf.calibrate.ignoreaps = 'yes'
+        iraf.calibrate()
 
     # output to text files
     hdr_arc = pyfits.getheader('%s.ms.fits' % os.path.splitext(arc)[0])
@@ -473,6 +477,63 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
     print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
+
+def combine_sides(imgID_list_blue, imgID_list_red, output=None):
+    """imgID_lists are lists of numbers of extracted spectra:
+    eg, [41] for red0041.spec.fits"""
+
+            
+    blue_files = ['blue{:04d}.spec.fits'.format(imgID) for imgID in imgID_list_blue]
+    red_files = ['red{:04d}.spec.fits'.format(imgID) for imgID in imgID_list_red]
+
+    input_blue_list = ','.join(blue_files)
+
+    if output is None:
+        import base64
+        hdr = pyfits.getheader(blue_files[0])
+        obj = hdr['OBJECT'].replace(' ','_')
+        # create a unique name based on the input
+        output = obj + '_' + \
+            base64.b64encode("{d}".format(N.sum(imgID_list_blue) + 
+                N.sum(imgID_list_red)))
+
+    # clobber the old output file
+    iraf.delete(output,verify='no')
+    
+    # determine dispersion: downsample to lower-resolution spectrum
+    hdr = pyfits.getheader(blue_files[0])
+    dw_blue = hdr['CDELT1']
+    hdr = pyfits.getheader(red_files[0])
+    dw_red = hdr['CDELT1']
+    dw = np.max([dw_blue,dw_red])
+
+    # TODO: cut off blue side redder than 5500
+    trim_files = [f.replace('spec','trim') for f in blue_files]
+    output_trim_list = ','.join(trim_files)
+    iraf.unlearn('dispcor')
+    iraf.dispcor.input = input_blue_list
+    iraf.dispcor.output = output_trim_list
+    # wavelength solution
+    iraf.dispcor.w1 = 3800
+    iraf.dispcor.w2 = 5500
+    iraf.dispcor.dw = dw
+    iraf.dispcor.flux = 'no'
+    iraf.dispcor()
+
+    all_files = trim_files + red_files
+    input_file_list = ','.join(all_files)
+
+    iraf.unlearn('scombine')
+    iraf.scombine.input = input_file_list
+    iraf.scombine.output = output
+    iraf.scombine.group = 'all'
+    iraf.scombine.first = 'no'
+    iraf.scombine.dw = dw
+    iraf.scombine.scale = 'none'
+    iraf.scombine()
+
+    # clean up
+    iraf.delete('blue*.trim.fits',verify='no')
 
 def combineSpectra(specList, outSpecFname, use_ratios=False):
     """Scales input 1D spectra onto the same scale
