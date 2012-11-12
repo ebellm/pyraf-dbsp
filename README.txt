@@ -23,7 +23,7 @@ ipython
 change the names of any files you don't want to process (use your log):
 mark_bad('blue',[41,43,50])
 
-createArcDome(side = 'blue', overwrite=True)
+createArcDome(side = 'blue')
 
 	fit normalization spectrum for temp interactively?
 		> click in graphics window and hit ? for a list of commands
@@ -42,9 +42,13 @@ createArcDome(side = 'blue', overwrite=True)
 		to click to focus; then you may have to click back to type responses in
 		the terminal.) 
 
-createArcDome(side = 'red', overwrite=True)
+createArcDome(side = 'red')
 
-extract1D(61,side='blue',redo='yes')
+store_standards([41,42,43], side='blue',redo='yes')
+store_standards([41,42,43], side='red',redo='yes')
+	for now, only use a single standard
+
+extract1D(61,side='blue',flux=True)
 
 	options: 
 		redo: 
@@ -59,7 +63,6 @@ extract1D(61,side='blue',redo='yes')
 			it is crucial to specify these correctly if using a different
 			setup.
 			
-
 	edit apertures for (file)? 
 		'yes', in terminal
 		again, see http://iraf.noao.edu/tutorials/doslit/doslit.html
@@ -99,7 +102,8 @@ extract1D(61,side='blue',redo='yes')
 
 	change wavelength coordinate assignments?
 		sets wavelength range & binning
-			sensible defaults: 5500-10000, 1.525 red
+			sensible defaults: 5500-10000, 1.525 red (new)
+							   3800-5700, 1.07 blue
 	
 	standards:
 		? for list

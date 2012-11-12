@@ -50,7 +50,7 @@ def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
     totErr = np.sqrt(np.sum(spectraErr**2, axis=1))
     return [status, res/totErr]
 
-def createArcDome(side='blue',trace=None,arcslit=0.5,overwrite=False):
+def createArcDome(side='blue',trace=None,arcslit=0.5,overwrite=True):
 
     assert ((side == 'blue') or (side == 'red'))
     if trace is None:
@@ -452,6 +452,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.delete('%s%04d.err.txt' % (side,imgID), verify='no')
     iraf.delete('%s%04d.spec.fits' % (side,imgID), verify='no')
     iraf.delete('%s%04d.err.fits' % (side,imgID), verify='no')
+    iraf.unlearn('dispcor')
     iraf.dispcor('%s%04d.0001' % (side,imgID), '%s%04d.spec' % (side,imgID), w1=hdr_arc['CRVAL1'], dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'])
     iraf.wspectext('%s%04d.spec.fits' % (side,imgID), '%s%04d.spec.txt' % (side,imgID), header="no")
     iraf.dispcor('%s%04d.3001' % (side,imgID), '%s%04d.err' % (side,imgID), w1=hdr_arc['CRVAL1'], dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'], blank=1.0)
@@ -475,8 +476,11 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
-    s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
-    print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
+    try:
+        s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
+        print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
+    except iraf.IrafError:
+        print "Warning: could not imstat SNR"
 
 def combine_sides(imgID_list_blue, imgID_list_red, output=None):
     """imgID_lists are lists of numbers of extracted spectra:
