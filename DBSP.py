@@ -23,8 +23,11 @@ iraf.onedspec(_doprint=0)
 # (blue trace is usually around 250-260)
 det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
                     'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}, 
-            'red':{'gain':2.8,'readnoise':8,'trace':166,
-                    'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}}
+            #'red':{'gain':2.8,'readnoise':8,'trace':166,
+            #        'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}}
+			# old CCD
+            'red':{'gain':2.0,'readnoise':7.5,'trace':124,
+                    'crval':6600, 'cdelt':2.44, 'arc':'HeNeAr_0.5.fits'}}
 
 def mark_bad(side,numbers):
     assert (side in ['blue','red'])
@@ -442,7 +445,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         rootname = '%s%04d' % (side,imgID)
         iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
         iraf.calibrate.output = ""
-        iraf.calibrate.sensitivity = sensitivity='sens-{}'.format(side)
+        # I'm not sure yet why this gets moved to .0001...
+        iraf.calibrate.sensitivity = sensitivity='sens-{}.0001'.format(side)
         iraf.calibrate.ignoreaps = 'yes'
         iraf.calibrate()
 
@@ -498,8 +502,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None):
         obj = hdr['OBJECT'].replace(' ','_')
         # create a unique name based on the input
         output = obj + '_' + \
-            base64.b64encode("{d}".format(N.sum(imgID_list_blue) + 
-                N.sum(imgID_list_red)))
+            base64.b64encode("{:d}".format(np.sum(imgID_list_blue) + 
+                np.sum(imgID_list_red)))
 
     # clobber the old output file
     iraf.delete(output,verify='no')
@@ -535,6 +539,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None):
     iraf.scombine.dw = dw
     iraf.scombine.scale = 'none'
     iraf.scombine()
+
+    iraf.wspectext(output, output.replace('fits','txt'), header="no")
 
     # clean up
     iraf.delete('blue*.trim.fits',verify='no')

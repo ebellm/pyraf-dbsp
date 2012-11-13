@@ -124,7 +124,7 @@ extract1D(61,side='blue',flux=True)
 			s over graphs to eliminate mean shifts due to non-photometric 
 				conditions (toggles)
 
-
+combine_sides([64],[71,72],output='mytarget')
 
 		
 
