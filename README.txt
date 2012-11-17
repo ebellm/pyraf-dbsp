@@ -117,7 +117,7 @@ extract1D(61,side='blue',flux=True)
 	change wavelength coordinate assignments?
 		sets wavelength range & binning
 			sensible defaults: 5500-10000, 1.525 red (new)
-							   5500-7800, 2.46 red (old)
+							   5500-7800, 2.47 red (old)
 							   3800-5700, 1.07 blue
 	
 	standards:
@@ -138,6 +138,10 @@ extract1D(61,side='blue',flux=True)
 			? for help
 			s over graphs to eliminate mean shifts due to non-photometric 
 				conditions (toggles)
+			d to delete bad points
+			make sure the fitted function doesn't go up after the last
+			points--it will blow up the noise.  Also consider decreasing
+			the order of the fit (:order 4) to avoid spline artifacts
 
 combine_sides([64],[71,72],output='mytarget')
 

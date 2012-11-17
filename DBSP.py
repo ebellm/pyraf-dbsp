@@ -11,6 +11,9 @@ from glob import glob
 # directory where the reduction code is stored
 BASE_DIR = '/home/ebellm/observing/reduction/dbsp/'
 
+# which red CCD is in?
+NEW_RED_SIDE = False
+
 # load IRAF packages
 iraf.noao(_doprint=0)
 iraf.imred(_doprint=0)
@@ -22,13 +25,16 @@ iraf.onedspec(_doprint=0)
 # defaults
 # (blue trace is usually around 250-260)
 det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
-                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}, 
-            #'red':{'gain':2.8,'readnoise':8,'trace':166,
-            #        'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}}
-            # old CCD
-            'red':{'gain':2.0,'readnoise':7.5,'trace':130,
-                    'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits'}}
-            # crval is in Angstrom, cdelt is Angstrom/pixel
+                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}} 
+
+if NEW_RED_SIDE:
+    det_pars['red'] = {'gain':2.8,'readnoise':8,'trace':166,
+                    'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}
+else:
+    # old CCD
+    det_pars['red'] = {'gain':2.0,'readnoise':7.5,'trace':130,
+                    'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits'}
+                    # crval is in Angstrom, cdelt is Angstrom/pixel
 
 def mark_bad(side,numbers):
     assert (side in ['blue','red'])
@@ -88,7 +94,9 @@ def bias_subtract(side='blue',trace=None):
     if side == 'blue':
         iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
     else:
-        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
+        # trim the specified region
+        tsec_x = hdr['TSEC1'].split(',')[0]
+        iraf.ccdproc.trimsec = tsec_x + ",%d:%d]" % (trace-100, trace+100)
     iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.darkcor = "no"
     iraf.ccdproc.function = "spline3"
@@ -216,7 +224,9 @@ def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
     if side == 'blue':
         iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
     else:
-        iraf.ccdproc.trimsec = "[*,%d:%d]" % (trace-100, trace+100)
+        # trim the specified region
+        tsec_x = hdr['TSEC1'].split(',')[0]
+        iraf.ccdproc.trimsec = tsec_x + ",%d:%d]" % (trace-100, trace+100)
     iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.darkcor = "no"
     iraf.ccdproc.function = "spline3"
@@ -296,7 +306,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # preprocess the science image
     preprocess_image('%s%04d.fits' % (side,imgID), side=side, trace=trace)
 
-    # preprocess the arc image
+    #preprocess the arc image
     preprocess_image(arc, side=side, trace=trace, flatcor='no')
 
     # set up doslit
