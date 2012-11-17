@@ -1,11 +1,12 @@
 todos:  
-fit HeNeAr line list (add reddest lines; use c to find bad lines & comment
-	them out?)
 generate all arcs at once
-flux spectra ("standards" in doslit)
-combine red & blue sides
-fix stats code for red side (quote at midpoint, 7500 for red; check if
-	dispersion is included)
+copy over new files without overwriting existing ones
+	(cp --no-clobber raw/*.fits .)
+wrapper for single extract-combine-plot run
+switches to supress prompts where possible
+script to "undo" various parts of the analysis?  eg, start from scratch w/
+	standards
+
 
 (calculate gain & readnoise from cal files)
 
@@ -14,6 +15,8 @@ fix stats code for red side (quote at midpoint, 7500 for red; check if
 cd to your data directory
 mdkir raw
 cp *.fits raw
+	(This code will overwrite your files--you must save the originals
+	first!!!)
 
 ipython
 
@@ -46,7 +49,9 @@ createArcDome(side = 'red')
 
 store_standards([41,42,43], side='blue',redo='yes')
 store_standards([41,42,43], side='red',redo='yes')
+
 	for now, only use a single standard
+
 
 extract1D(61,side='blue',flux=True)
 
@@ -70,6 +75,13 @@ extract1D(61,side='blue',flux=True)
 		search)
 		(http://www.twilightlandscapes.com/IRAFtutorial/IRAFintro_06.html)
 
+		d to delete trace, m to set it
+		b to enter background editing
+			z to delete background intervals
+			s s (with cursor positions) to mark new fit regions
+			f to fit
+			q to quit
+
 	fit traced positions interactively?
 		'yes' in window--brings up icfit again
 		? for help
@@ -79,7 +91,7 @@ extract1D(61,side='blue',flux=True)
 		f to refit
 		(aiming for RMS < 0.07 or so)
 
-	autoidentify
+	autoidentify, reidentify
 		get a plot with labelled lines
 		f to fit
 		j to switch to residuals plot
@@ -100,9 +112,12 @@ extract1D(61,side='blue',flux=True)
 		f to fit again
 		q twice to save solution
 
+		when reidentifying, bad RMS may often be fixed just by hitting l then q
+
 	change wavelength coordinate assignments?
 		sets wavelength range & binning
 			sensible defaults: 5500-10000, 1.525 red (new)
+							   5500-7800, 2.46 red (old)
 							   3800-5700, 1.07 blue
 	
 	standards:
@@ -136,3 +151,11 @@ window commands: click graphics window, type w ?
 iraf.help('doslit')
 iraf.dir('onedstds$')
 iraf.type('onedstds$README') (or iraf.page)
+
+FAQ:
+
+Why isn't autoidentify putting the arc lines in the right place?  Why is my
+wavelength solution bad?
+
+Are the crval and cdelt values appropriate for the CCD, grating, and angle
+you're using?  Defaults are:

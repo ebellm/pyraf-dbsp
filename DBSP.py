@@ -25,9 +25,10 @@ det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
                     'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}, 
             #'red':{'gain':2.8,'readnoise':8,'trace':166,
             #        'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}}
-			# old CCD
-            'red':{'gain':2.0,'readnoise':7.5,'trace':124,
-                    'crval':6600, 'cdelt':2.44, 'arc':'HeNeAr_0.5.fits'}}
+            # old CCD
+            'red':{'gain':2.0,'readnoise':7.5,'trace':130,
+                    'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits'}}
+            # crval is in Angstrom, cdelt is Angstrom/pixel
 
 def mark_bad(side,numbers):
     assert (side in ['blue','red'])
@@ -98,7 +99,7 @@ def bias_subtract(side='blue',trace=None):
 
 def fix_bad_column_blue():
     # find the bad column using a science exposure
-    science = iraf.hselect('blue0*.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
+    science = iraf.hselect('blue????.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
     science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
     f = pyfits.open(science[0])
     bad_column = f[0].data[1062,:].argmin() + 1
@@ -118,10 +119,10 @@ def make_flats(side='blue',overwrite=False):
     iraf.flatcombine.gain = "GAIN"
     for aperture in ['0.5','1.0', '1.5', '2.0']:
         # find dome flat images
-        domeflats = iraf.hselect('%s0*.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
+        domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
         domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000"' % aperture, Stdout=1)
         # find internal flat (incandescent lamp) images
-        intflats = iraf.hselect('%s0*.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
+        intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
         intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS == "1.000"' % aperture, Stdout=1)
         # dome flats are prefered over internal flats
         flats = []
@@ -169,7 +170,7 @@ def make_arcs_blue(slit=0.5, overwrite=False):
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['blue']['readnoise']
     iraf.imcombine.gain = det_pars['blue']['gain']
-    arcs = iraf.hselect('blue0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
+    arcs = iraf.hselect('blue????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
     try:
         arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
     except:
@@ -186,7 +187,7 @@ def make_arcs_red(slit=0.5, overwrite=False):
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['red']['readnoise']
     iraf.imcombine.gain = det_pars['red']['gain']
-    arcs = iraf.hselect('red0*.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
+    arcs = iraf.hselect('red????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
     try:
         arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
     except:
@@ -333,23 +334,25 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     for i in np.arange(xR.size-1):
         background_range += '%d:%d,' % (np.int(xR[i]+1), np.int(xR[i+1]))
     iraf.doslit.b_sample = background_range[:-1]
-    fwhm_arc = 2.8 # input FWHM of arc lines here
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
         #iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
         iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_FeAr_dbsp.dat'
+        fwhm_arc = 2.8 # input FWHM of arc lines here (in pixels)
     else:
         #iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
         iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_HeNeAr_dbsp.dat'
+        fwhm_arc = 1.6 # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
-    iraf.doslit.match = 10
-    iraf.doslit.i_niterate = 3
+    iraf.doslit.match = 0.3 # positive number is angstrom, negative is pix
+    iraf.doslit.i_niterate = 5
     iraf.doslit.addfeatures = 'no'
     iraf.doslit.linearize = "yes"
 
     # extract 1D spectrum
-    print arc, iraf.doslit.crval, iraf.doslit.cdelt
+    #print arc, iraf.doslit.crval, iraf.doslit.cdelt
+    #iraf.epar('doslit')
     iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
@@ -390,7 +393,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         # dump useful data from skyfit?.dat (center width err_center err_width)
         #for i in [1,2,3,4]:
             os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
-            dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+            try:
+                dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+            except:
+                # keep going if there's a bad profile fit
+                print "Warning: bad fit for wavelength_offset_{side:s}_{num:1d}.dat".format(side=side,num=i)
+                continue
             assert (dat['center'].size == 1)
             offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
         print offsets
@@ -486,7 +494,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     except iraf.IrafError:
         print "Warning: could not imstat SNR"
 
-def combine_sides(imgID_list_blue, imgID_list_red, output=None):
+def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
     eg, [41] for red0041.spec.fits"""
 
@@ -503,7 +511,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None):
         # create a unique name based on the input
         output = obj + '_' + \
             base64.b64encode("{:d}".format(np.sum(imgID_list_blue) + 
-                np.sum(imgID_list_red)))
+                np.sum(imgID_list_red))) + '.fits'
 
     # clobber the old output file
     iraf.delete(output,verify='no')
@@ -544,6 +552,9 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None):
 
     # clean up
     iraf.delete('blue*.trim.fits',verify='no')
+    
+    if splot == 'yes':
+        iraf.splot(output)
 
 def combineSpectra(specList, outSpecFname, use_ratios=False):
     """Scales input 1D spectra onto the same scale
