@@ -519,12 +519,20 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         hdr = pyfits.getheader(blue_files[0])
         obj = hdr['OBJECT'].replace(' ','_')
         # create a unique name based on the input
+
+        def ids_to_string(idlist):
+            if len(idlist) == 1:
+                return "{:d}".format(idlist[0])
+            else:
+                return ",".join(["{:d}".format(id) for id in idlist])
+
         output = obj + '_' + \
-            base64.b64encode("{:d}".format(np.sum(imgID_list_blue) + 
-                np.sum(imgID_list_red))) + '.fits'
+            ids_to_string(imgID_list_blue) + '+' + \
+            ids_to_string(imgID_list_red) + '.fits'
 
     # clobber the old output file
     iraf.delete(output,verify='no')
+    iraf.delete(output.replace('fits','txt'),verify='no')
     
     # determine dispersion: downsample to lower-resolution spectrum
     hdr = pyfits.getheader(blue_files[0])
@@ -533,7 +541,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     dw_red = hdr['CDELT1']
     dw = np.max([dw_blue,dw_red])
 
-    # TODO: cut off blue side redder than 5500
+    # cut off blue side redder than 5500
     trim_files = [f.replace('spec','trim') for f in blue_files]
     output_trim_list = ','.join(trim_files)
     iraf.unlearn('dispcor')
