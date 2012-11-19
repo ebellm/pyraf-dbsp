@@ -350,11 +350,11 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.i_order = 4
     if side == 'blue':
         #iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
-        iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_FeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + 'cal/brani_FeAr_dbsp.dat'
         fwhm_arc = 2.8 # input FWHM of arc lines here (in pixels)
     else:
         #iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
-        iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_HeNeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + 'cal/brani_HeNeAr_dbsp.dat'
         fwhm_arc = 1.6 # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10. # positive number is angstrom, negative is pix
@@ -395,7 +395,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
             iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
                 reg=sky_lines[side]['regs'][i], 
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
-                pos=BASE_DIR + 'dbsp_cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
+                pos=BASE_DIR + 'cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
                 verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
         #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
