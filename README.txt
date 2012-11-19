@@ -6,7 +6,8 @@ wrapper for single extract-combine-plot run
 switches to supress prompts where possible
 script to "undo" various parts of the analysis?  eg, start from scratch w/
 	standards
-
+brani suggests only using arcs taken in a single batch--need to adjust code
+	logic
 
 (calculate gain & readnoise from cal files)
 
@@ -28,7 +29,13 @@ mark_bad('blue',[41,43,50])
 
 createArcDome(side = 'blue')
 
-	fit normalization spectrum for temp interactively?
+	fit normalization spectrum for temp interactively?  yes
+		
+		j to get residuals
+		d to delete any weird spikes (symmetric ringing okay)
+		f to refit
+		q to quit
+
 		> click in graphics window and hit ? for a list of commands
 		(see response section of
 		http://iraf.noao.edu/tutorials/doslit/doslit.html)
@@ -44,6 +51,7 @@ createArcDome(side = 'blue')
 		okay) (note that commands in the graphics window typically require you
 		to click to focus; then you may have to click back to type responses in
 		the terminal.) 
+
 
 createArcDome(side = 'red')
 

@@ -12,7 +12,8 @@ from glob import glob
 BASE_DIR = '/home/ebellm/observing/reduction/dbsp/'
 
 # which red CCD is in?
-NEW_RED_SIDE = False
+#NEW_RED_SIDE = False
+NEW_RED_SIDE = True
 
 # load IRAF packages
 iraf.noao(_doprint=0)
@@ -163,7 +164,7 @@ def make_flats(side='blue',overwrite=False):
                 iraf.imcombine(','.join(flats), output='flat', sigma='sigma', scale='mode')
                 iraf.imarith('sigma', '/', 'flat', 'frac')
                 s = iraf.imstat('frac.fits', fields="mean", nclip=20, Stdout=1, format="no")
-                print np.float(s[0])
+                print 'Flat field error: ', np.float(s[0])
                 iraf.delete('flat.fits', verify="no")
                 iraf.delete('sigma.fits', verify="no")
                 iraf.delete('frac.fits', verify="no")
@@ -313,6 +314,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     fwhm = 4.6
     iraf.unlearn('doslit')
     iraf.unlearn('apslitproc')
+    iraf.unlearn('aidpars')
     iraf.doslit.readnoise = "RON"
     iraf.doslit.gain = "GAIN"
     iraf.doslit.width = 3*fwhm
@@ -355,7 +357,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         iraf.doslit.coordlist = BASE_DIR + 'dbsp_cal/brani_HeNeAr_dbsp.dat'
         fwhm_arc = 1.6 # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
-    iraf.doslit.match = 0.3 # positive number is angstrom, negative is pix
+    iraf.doslit.match = 10. # positive number is angstrom, negative is pix
     iraf.doslit.i_niterate = 5
     iraf.doslit.addfeatures = 'no'
     iraf.doslit.linearize = "yes"
@@ -524,7 +526,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
             if len(idlist) == 1:
                 return "{:d}".format(idlist[0])
             else:
-                return ",".join(["{:d}".format(id) for id in idlist])
+                return "-".join(["{:d}".format(id) for id in idlist])
 
         output = obj + '_' + \
             ids_to_string(imgID_list_blue) + '+' + \
@@ -560,6 +562,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     iraf.unlearn('scombine')
     iraf.scombine.input = input_file_list
     iraf.scombine.output = output
+    iraf.scombine.combine = 'average'
     iraf.scombine.group = 'all'
     iraf.scombine.first = 'no'
     iraf.scombine.dw = dw
