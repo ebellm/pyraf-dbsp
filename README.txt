@@ -151,7 +151,7 @@ extract1D(61,side='blue',flux=True)
 			points--it will blow up the noise.  Also consider decreasing
 			the order of the fit (:order 4) to avoid spline artifacts
 
-combine_sides([64],[71,72],output='mytarget')
+combine_sides([64],[71,72])
 
 		
 

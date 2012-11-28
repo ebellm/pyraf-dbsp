@@ -2,6 +2,7 @@
 from pyraf import iraf
 import numpy as np
 import os
+import inspect
 import pyfits
 import cosmics
 from mpfit import mpfit
@@ -9,11 +10,29 @@ import copy
 from glob import glob
 
 # directory where the reduction code is stored
-BASE_DIR = '/home/ebellm/observing/reduction/dbsp/'
+BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 # which red CCD is in?
-#NEW_RED_SIDE = False
-NEW_RED_SIDE = True
+def is_new_red_camera():
+	ids = range(10)
+	for id in ids:
+		name = 'red{:04d}.fits'.format(id)
+		if os.path.exists(name):
+			hdr = pyfits.getheader(name)
+			if hdr['NAXIS1'] == 4141:
+				return True
+			elif hdr['NAXIS1'] == 1024:
+				return False
+			else:
+				raise ValueError('Unexpected image size')
+		else:
+			continue
+
+	#raise ValueError('Could not locate red side files')
+	print 'Could not locate red side files--defaulting to new camera'
+	return True
+	
+NEW_RED_SIDE = is_new_red_camera()
 
 # load IRAF packages
 iraf.noao(_doprint=0)
@@ -335,7 +354,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.t_high = 2
     iraf.doslit.t_low = 2
     iraf.doslit.weights = "variance"
-    iraf.doslit.b_order = 2
+    iraf.doslit.b_order = 4
+    iraf.doslit.b_niterate = 2
     iraf.doslit.select = "average"
     anullus_start = fwhm*2
     xL = np.floor(np.linspace(-80,-1*anullus_start,10))
@@ -349,12 +369,10 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
-        #iraf.doslit.coordlist = "/home/bsesar/opt/python/brani_DBSP.lst"
-        iraf.doslit.coordlist = BASE_DIR + 'cal/brani_FeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + '/cal/brani_FeAr_dbsp.dat'
         fwhm_arc = 2.8 # input FWHM of arc lines here (in pixels)
     else:
-        #iraf.doslit.coordlist = "/home/bsesar/opt/python/henear.dat"
-        iraf.doslit.coordlist = BASE_DIR + 'cal/brani_HeNeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + '/cal/brani_HeNeAr_dbsp.dat'
         fwhm_arc = 1.6 # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10. # positive number is angstrom, negative is pix
@@ -395,7 +413,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
             iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
                 reg=sky_lines[side]['regs'][i], 
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
-                pos=BASE_DIR + 'cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
+                pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
                 verbose='no')
         #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
         #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
