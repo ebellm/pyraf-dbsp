@@ -14,24 +14,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 
 # which red CCD is in?
 def is_new_red_camera():
-	ids = range(10)
-	for id in ids:
-		name = 'red{:04d}.fits'.format(id)
-		if os.path.exists(name):
-			hdr = pyfits.getheader(name)
-			if hdr['NAXIS1'] == 4141:
-				return True
-			elif hdr['NAXIS1'] == 1024:
-				return False
-			else:
-				raise ValueError('Unexpected image size')
-		else:
-			continue
+    ids = range(10)
+    for id in ids:
+        name = 'red{:04d}.fits'.format(id)
+        if os.path.exists(name):
+            hdr = pyfits.getheader(name)
+            if hdr['NAXIS1'] == 4141:
+                return True
+            elif hdr['NAXIS1'] == 1024:
+                return False
+            else:
+                raise ValueError('Unexpected image size')
+        else:
+            continue
 
-	#raise ValueError('Could not locate red side files')
-	print 'Could not locate red side files--defaulting to new camera'
-	return True
-	
+    #raise ValueError('Could not locate red side files')
+    print 'Could not locate red side files--defaulting to new camera'
+    return True
+    
 NEW_RED_SIDE = is_new_red_camera()
 
 # load IRAF packages
@@ -304,7 +304,7 @@ def store_standards(imgID_list, side='blue', trace=None,
 
 
 
-def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', flux=False, crval=None, cdelt=None):
+def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', flux=False, reextract=False, crval=None, cdelt=None):
 
     assert (side in ['blue','red'])
     assert (splot in ['yes','no'])
@@ -322,6 +322,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
 
     if cdelt is None:
         cdelt = det_pars[side]['cdelt']
+
+    if reextract:
+        apfile = 'database/ap{:s}{:04d}'.format(side,imgID)
+        if os.path.exists(apfile):
+            os.remove(apfile)
+            
 
     # preprocess the science image
     preprocess_image('%s%04d.fits' % (side,imgID), side=side, trace=trace)
@@ -354,8 +360,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     iraf.doslit.t_high = 2
     iraf.doslit.t_low = 2
     iraf.doslit.weights = "variance"
-    iraf.doslit.b_order = 4
-    iraf.doslit.b_niterate = 2
+    iraf.doslit.b_order = 3
+    iraf.doslit.b_niterate = 1
     iraf.doslit.select = "average"
     anullus_start = fwhm*2
     xL = np.floor(np.linspace(-80,-1*anullus_start,10))
@@ -648,6 +654,7 @@ def combineSpectra(specList, outSpecFname, use_ratios=False):
         parinfo=[]
         for i in range(len(p0)):
             parinfo.append(copy.deepcopy(parbase))
+        #TODO: replace this with scipy.optimize.minpack.leastsq
         m = mpfit(matchSpectra, p0,functkw=fa, parinfo=parinfo, quiet=True)
         if (m.status <= 0):
             print 'error message = ', m.errmsg
