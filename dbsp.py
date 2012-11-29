@@ -1,4 +1,12 @@
-#!/usr/bin/env python
+"""
+dbsp.py is a pyraf-based reduction pipeline for spectra taken with the
+Palomar 200-inch Double Spectrograph.
+"""
+
+# Authors:  Eric Bellm <ebellm@caltech.edu>,
+#           Branimir Sesar <bsesar@astro.caltech.edu>
+# License: BSD Style.
+
 from pyraf import iraf
 import numpy as np
 import os
@@ -10,10 +18,11 @@ import copy
 from glob import glob
 
 # directory where the reduction code is stored
-BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(
+                inspect.currentframe())))
 
-# which red CCD is in?
 def is_new_red_camera():
+	"""Utility for determining red camera version from image size."""
     ids = range(10)
     for id in ids:
         name = 'red{:04d}.fits'.format(id)
@@ -57,6 +66,20 @@ else:
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
 def mark_bad(side,numbers):
+	"""Utility for excluding specific files from further analysis.
+
+	Saturated or mis-configured exposures are suffixed .bad so file searches
+	do not find them.
+	
+	Parameters
+	----------
+	side : string
+		'blue' or 'red' to indicate the arm of the spectrograph
+	numbers : list of int or int
+		image id(s) to be marked as bad.
+
+	"""
+
     assert (side in ['blue','red'])
     try:
         for num in numbers:
@@ -67,18 +90,6 @@ def mark_bad(side,numbers):
         num = numbers
         name = '{:s}{:04d}.fits'.format(side,num)
         os.rename(name, name+'.bad')
-
-def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
-    # Parameter values are passed in "p"
-    # If fjac==None then partial derivatives should not be
-    # computed.  It will always be None if MPFIT is called with default
-    # flag.
-    # Non-negative status value means MPFIT should continue, negative means
-    # stop the calculation.
-    status = 0
-    res = np.sum(p*spectra[:, 1:], axis=1) - spectra[:, 0]
-    totErr = np.sqrt(np.sum(spectraErr**2, axis=1))
-    return [status, res/totErr]
 
 def createArcDome(side='blue',trace=None,arcslit=0.5,overwrite=True):
 
@@ -600,6 +611,18 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     
     if splot == 'yes':
         iraf.splot(output)
+
+def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
+    # Parameter values are passed in "p"
+    # If fjac==None then partial derivatives should not be
+    # computed.  It will always be None if MPFIT is called with default
+    # flag.
+    # Non-negative status value means MPFIT should continue, negative means
+    # stop the calculation.
+    status = 0
+    res = np.sum(p*spectra[:, 1:], axis=1) - spectra[:, 0]
+    totErr = np.sqrt(np.sum(spectraErr**2, axis=1))
+    return [status, res/totErr]
 
 def combineSpectra(specList, outSpecFname, use_ratios=False):
     """Scales input 1D spectra onto the same scale
