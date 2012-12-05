@@ -21,7 +21,7 @@ cp *.fits raw
 
 ipython
 
-%run ~/observing/reduction/dbsp/DBSP.py
+%run ~/observing/reduction/dbsp/dbsp.py
 
 
 change the names of any files you don't want to process (use your log):

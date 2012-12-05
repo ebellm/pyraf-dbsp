@@ -22,7 +22,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(
                 inspect.currentframe())))
 
 def is_new_red_camera():
-	"""Utility for determining red camera version from image size."""
+    """Utility for determining red camera version from image size."""
     ids = range(10)
     for id in ids:
         name = 'red{:04d}.fits'.format(id)
@@ -66,19 +66,19 @@ else:
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
 def mark_bad(side,numbers):
-	"""Utility for excluding specific files from further analysis.
+    """Utility for excluding specific files from further analysis.
 
-	Saturated or mis-configured exposures are suffixed .bad so file searches
-	do not find them.
-	
-	Parameters
-	----------
-	side : string
-		'blue' or 'red' to indicate the arm of the spectrograph
-	numbers : list of int or int
-		image id(s) to be marked as bad.
+    Saturated or mis-configured exposures are suffixed .bad so file searches
+    do not find them.
+    
+    Parameters
+    ----------
+    side : string
+        'blue' or 'red' to indicate the arm of the spectrograph
+    numbers : list of int or int
+        image id(s) to be marked as bad.
 
-	"""
+    """
 
     assert (side in ['blue','red'])
     try:
@@ -311,6 +311,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('sensfunc')
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
+	iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
 
 
@@ -321,6 +322,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     assert (splot in ['yes','no'])
     assert (redo in ['yes','no'])
     assert (resize in ['yes','no'])
+
+    rootname = '%s%04d' % (side,imgID)
 
     if trace is None:
         trace = det_pars[side]['trace']
@@ -335,13 +338,13 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         cdelt = det_pars[side]['cdelt']
 
     if reextract:
-        apfile = 'database/ap{:s}{:04d}'.format(side,imgID)
+        apfile = 'database/ap'+rootname
         if os.path.exists(apfile):
             os.remove(apfile)
             
 
     # preprocess the science image
-    preprocess_image('%s%04d.fits' % (side,imgID), side=side, trace=trace)
+    preprocess_image(rootname+'.fits', side=side, trace=trace)
 
     #preprocess the arc image
     preprocess_image(arc, side=side, trace=trace, flatcor='no')
@@ -400,22 +403,22 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # extract 1D spectrum
     #print arc, iraf.doslit.crval, iraf.doslit.cdelt
     #iraf.epar('doslit')
-    iraf.doslit('%s%04d.fits' % (side,imgID), arcs=arc, splot=splot, redo=redo, resize=resize)
+    iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
-    hdr = pyfits.getheader('%s%04d.fits' % (side,imgID))
+    hdr = pyfits.getheader(rootname + '.fits')
     midpoint_loc = {'blue':4750,'red':7400}
     if hdr['EXPTIME'] > 180:
         iraf.unlearn('scopy')
-        iraf.delete('%s%04d.2001.fits' % (side,imgID), verify='no')
         # background band
-        iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=3, format="onedspec")
+        iraf.delete(rootname + '.2001.fits', verify='no')
+        iraf.scopy(rootname + '.ms.fits', rootname, band=3, format="onedspec")
         iraf.unlearn('fitprofs')
         iraf.fitprofs.gfwhm = fwhm_arc
         iraf.fitprofs.nerrsample = 100
-        iraf.fitprofs.sigma0 = 2.5
-        iraf.fitprofs.invgain = 1.389
+        iraf.fitprofs.sigma0 = det_pars[side]['readnoise']
+        iraf.fitprofs.invgain = 1./det_pars[side]['gain']
         iraf.delete('skyfit*.dat', verify='no')
 
         sky_lines = {'blue':
@@ -427,7 +430,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
         
         offsets = []
         for i in range(len(sky_lines[side]['wavelength'])):
-            iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), 
+            iraf.fitprofs( rootname + '.2001.fits',
                 reg=sky_lines[side]['regs'][i], 
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
                 pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
@@ -470,7 +473,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
 
     # add wavelength shifts/ uncertainty in km/s to headers
     # (CRVAL1 doesn't seem to apply the shift correctly?)
-    f = pyfits.open('%s%04d.ms.fits' % (side,imgID))
+    f = pyfits.open(rootname + '.ms.fits')
     hdr = f[0].header
     if hdr['EXPTIME'] > 180:
         f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
@@ -478,76 +481,97 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     else:
         f[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
-    f.writeto('%s%04d.ms.fits' % (side,imgID), clobber=True)
+    f.writeto(rootname + '.ms.fits', clobber=True)
     f.close()
 
     # extract counts and uncertainties
     iraf.unlearn('scopy')
-    iraf.delete('%s%04d.0001.fits' % (side,imgID), verify='no')
-    iraf.delete('%s%04d.2001.fits' % (side,imgID), verify='no')
-    iraf.delete('%s%04d.3001.fits' % (side,imgID), verify='no')
-    iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=1, format="onedspec")
-    iraf.scopy('%s%04d.ms.fits' % (side,imgID), '%s%04d' % (side,imgID), band=4, format="onedspec")
+    iraf.delete(rootname + '.0001.fits', verify='no')
+    iraf.delete(rootname + '.2001.fits', verify='no')
+    iraf.delete(rootname + '.3001.fits', verify='no')
+    iraf.scopy(rootname + '.ms.fits', rootname, band=1, format="onedspec")
+    iraf.scopy(rootname + '.ms.fits', rootname, band=4, format="onedspec")
 
     # correct wavelength calibration using sky lines
     if hdr['EXPTIME'] > 180:
-        iraf.specshift('%s%04d.0001' % (side,imgID), '%.3f' % (-offset_final))
-        iraf.specshift('%s%04d.3001' % (side,imgID), '%.3f' % (-offset_final))
+        iraf.specshift(rootname + '.0001', '%.3f' % (-offset_final))
+        iraf.specshift(rootname + '.3001', '%.3f' % (-offset_final))
 
     # flux, if requested
     if flux:
+        # TODO: run setairmass; ensure extinction is set up correctly
         iraf.unlearn('calibrate')
-        rootname = '%s%04d' % (side,imgID)
         iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
-        iraf.calibrate.output = ""
+        iraf.calibrate.output = rootname+'_flux.0001,'+rootname+'_flux.3001'
         # I'm not sure yet why this gets moved to .0001...
         iraf.calibrate.sensitivity = sensitivity='sens-{}.0001'.format(side)
         iraf.calibrate.ignoreaps = 'yes'
         iraf.calibrate()
 
     # output to text files
+    def text_output(rootname,hdr_arc,flux=False):
+        if flux:
+            suffix = '_flux'
+        else:
+            suffix = ''
+        iraf.delete(rootname + '%s.spec.txt' % (suffix), verify='no')
+        iraf.delete(rootname + '%s.err.txt' % (suffix), verify='no')
+        iraf.delete(rootname + '%s.spec.fits' % (suffix), verify='no')
+        iraf.delete(rootname + '%s.err.fits' % (suffix), verify='no')
+        iraf.unlearn('dispcor')
+        iraf.dispcor(rootname + '%s.0001' % (suffix), 
+                rootname + '%s.spec' % (suffix), w1=hdr_arc['CRVAL1'], 
+                dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'])
+        iraf.wspectext(rootname + '%s.spec.fits' % (suffix), 
+                rootname + '%s.spec.txt' % (suffix), header="no")
+        iraf.dispcor(rootname + '%s.3001' % (suffix), 
+                rootname + '%s.err' % (suffix), w1=hdr_arc['CRVAL1'], 
+                dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'], blank=1.0)
+        iraf.wspectext(rootname + '%s.err.fits' % (suffix), 
+                rootname + '%s.err.txt' % (suffix), header="no")
+
     hdr_arc = pyfits.getheader('%s.ms.fits' % os.path.splitext(arc)[0])
-    iraf.delete('%s%04d.spec.txt' % (side,imgID), verify='no')
-    iraf.delete('%s%04d.err.txt' % (side,imgID), verify='no')
-    iraf.delete('%s%04d.spec.fits' % (side,imgID), verify='no')
-    iraf.delete('%s%04d.err.fits' % (side,imgID), verify='no')
-    iraf.unlearn('dispcor')
-    iraf.dispcor('%s%04d.0001' % (side,imgID), '%s%04d.spec' % (side,imgID), w1=hdr_arc['CRVAL1'], dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'])
-    iraf.wspectext('%s%04d.spec.fits' % (side,imgID), '%s%04d.spec.txt' % (side,imgID), header="no")
-    iraf.dispcor('%s%04d.3001' % (side,imgID), '%s%04d.err' % (side,imgID), w1=hdr_arc['CRVAL1'], dw=hdr_arc['CDELT1'], nw=hdr_arc['NAXIS1'], blank=1.0)
-    iraf.wspectext('%s%04d.err.fits' % (side,imgID), '%s%04d.err.txt' % (side,imgID), header="no")
+    text_output(rootname,hdr_arc,flux=False)
+    if flux:
+        text_output(rootname,hdr_arc,flux=True)
 
     # calculate SNR
-    iraf.delete('%s%04d.snr.fits' % (side,imgID), verify='no')
-    iraf.imarith('%s%04d.spec.fits' % (side,imgID), '/', '%s%04d.err.fits' % (side,imgID), '%s%04d.snr.fits' % (side,imgID))
+    iraf.delete(rootname + '.snr.fits', verify='no')
+    iraf.imarith(rootname + '.spec.fits', '/', rootname + '.err.fits', 
+        rootname + '.snr.fits')
 
     # cleanup
     iraf.delete('skyfit*.dat', verify='no')
     iraf.delete('wavelength_offset*.dat', verify='no')
-    iraf.delete('%s%04d.ms.fits' % (side,imgID), verify="no")
-    iraf.delete('%s%04d.0001.fits' % (side,imgID), verify="no")
-    iraf.delete('%s%04d.3001.fits' % (side,imgID), verify="no")
+    #iraf.delete(rootname + '.ms.fits', verify="no")
+    #iraf.delete(rootname + '.0001.fits', verify="no")
+    #iraf.delete(rootname + '.3001.fits', verify="no")
+    #if flux:
+    #    iraf.delete(rootname + '_flux.0001.fits', verify="no")
+    #    iraf.delete(rootname + '_flux.3001.fits', verify="no")
+
 
     # statistics
-    hdr = pyfits.getheader('%s%04d.spec.fits' % (side,imgID))
+    hdr = pyfits.getheader(rootname + '.spec.fits')
     if hdr['EXPTIME'] > 180:
         print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %f A." % (offset_final, error_at_mid,midpoint_loc[side])
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     try:
-        s = iraf.imstat('%s%04d.snr.fits[%d:%d]' % (side,imgID, wave1, wave2), fields='mean', nclip=20, Stdout=1, format="no")
+        s = iraf.imstat(rootname + '.snr.fits[%d:%d]' % (wave1, wave2), 
+                fields='mean', nclip=20, Stdout=1, format="no")
         print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
     except iraf.IrafError:
         print "Warning: could not imstat SNR"
 
 def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
-    eg, [41] for red0041.spec.fits"""
+    eg, [41] for red0041_flux.spec.fits"""
 
             
-    blue_files = ['blue{:04d}.spec.fits'.format(imgID) for imgID in imgID_list_blue]
-    red_files = ['red{:04d}.spec.fits'.format(imgID) for imgID in imgID_list_red]
+    blue_files = ['blue{:04d}_flux.spec.fits'.format(imgID) for imgID in imgID_list_blue]
+    red_files = ['red{:04d}_flux.spec.fits'.format(imgID) for imgID in imgID_list_red]
 
     input_blue_list = ','.join(blue_files)
 
