@@ -311,7 +311,8 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('sensfunc')
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
-	iraf.sensfunc.ignoreaps = 'yes'
+    # varun says to use ignoreaps, but it's causing me problems downstream
+    #iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
 
 
@@ -543,12 +544,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     # cleanup
     iraf.delete('skyfit*.dat', verify='no')
     iraf.delete('wavelength_offset*.dat', verify='no')
-    #iraf.delete(rootname + '.ms.fits', verify="no")
-    #iraf.delete(rootname + '.0001.fits', verify="no")
-    #iraf.delete(rootname + '.3001.fits', verify="no")
-    #if flux:
-    #    iraf.delete(rootname + '_flux.0001.fits', verify="no")
-    #    iraf.delete(rootname + '_flux.3001.fits', verify="no")
+    iraf.delete(rootname + '.ms.fits', verify="no")
+    iraf.delete(rootname + '.0001.fits', verify="no")
+    iraf.delete(rootname + '.3001.fits', verify="no")
+    if flux:
+        iraf.delete(rootname + '_flux.0001.fits', verify="no")
+        iraf.delete(rootname + '_flux.3001.fits', verify="no")
 
 
     # statistics
