@@ -12,10 +12,10 @@ import numpy as np
 import os
 import inspect
 import pyfits
-import cosmics
-from mpfit import mpfit
+from scipy.optimize.minpack import leastsq
 import copy
 from glob import glob
+import cosmics
 
 # directory where the reduction code is stored
 BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(
@@ -57,7 +57,7 @@ det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
                     'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}} 
 
 if NEW_RED_SIDE:
-    det_pars['red'] = {'gain':2.8,'readnoise':8,'trace':166,
+    det_pars['red'] = {'gain':2.8,'readnoise':8.5,'trace':166,
                     'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}
 else:
     # old CCD
@@ -91,7 +91,7 @@ def mark_bad(side,numbers):
         name = '{:s}{:04d}.fits'.format(side,num)
         os.rename(name, name+'.bad')
 
-def createArcDome(side='blue',trace=None,arcslit=0.5,overwrite=True):
+def create_arc_dome(side='blue',trace=None,arcslit=0.5,overwrite=True):
 
     assert ((side == 'blue') or (side == 'red'))
     if trace is None:
@@ -627,6 +627,9 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     iraf.scombine.first = 'no'
     iraf.scombine.dw = dw
     iraf.scombine.scale = 'none'
+    # attempt to join sides smoothly.
+    #iraf.scombine.zero = 'median'
+    #iraf.scombine.sample = ''
     iraf.scombine()
 
     iraf.wspectext(output, output.replace('fits','txt'), header="no")
@@ -637,77 +640,70 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     if splot == 'yes':
         iraf.splot(output)
 
-def matchSpectra(p, spectra=None, spectraErr=None, fjac=None):
-    # Parameter values are passed in "p"
-    # If fjac==None then partial derivatives should not be
-    # computed.  It will always be None if MPFIT is called with default
-    # flag.
-    # Non-negative status value means MPFIT should continue, negative means
-    # stop the calculation.
-    status = 0
-    res = np.sum(p*spectra[:, 1:], axis=1) - spectra[:, 0]
-    totErr = np.sqrt(np.sum(spectraErr**2, axis=1))
-    return [status, res/totErr]
+def match_spectra_leastsq(y, yref, yerr, yreferr):
+    errfunc = lambda p, y, yref, yerr, yreferr: \
+        (yref - p[0]*y)/np.sqrt(yerr**2. + yreferr**2.)
+    p0 = [1.]
+    # cast arguments to double to avoid fjac being zero:
+    # http://stackoverflow.com/questions/12473406/scipy-optimize-leastsq-returns-best-guess-parameters-not-new-best-fit
+    p, cov_x, infodict, mesg, ier = leastsq(errfunc,
+            p0, args=(y.astype(np.float64), yref.astype(np.float64), 
+            yerr.astype(np.float64), yreferr.astype(np.float64)),
+            full_output = True)
+    if ier >= 1:
+        print 'Best-fit ratio: ', p[0]
+        return p[0]
+    else:
+        raise ValueError('Matching did not converge: {}'.format(mesg))
 
-def combineSpectra(specList, outSpecFname, use_ratios=False):
+def combine_spectra_oneside(spec_list, out_name, 
+    use_ratios=False, ratio_range=[4200,4300]):
     """Scales input 1D spectra onto the same scale
        and then combines spectra using a weighted mean.
     """
 
     # first spectrum in the list is always the reference spectrum
-    hdr = pyfits.getheader('%s.spec.fits' % specList[0])
+    hdr = pyfits.getheader('%s.spec.fits' % spec_list[0])
     mjd = hdr['MJD']
     date_obs = hdr['DATE-OBS']
     epoch = hdr['EPOCH']
     observat = hdr['OBSERVAT']
     exptime = hdr['EXPTIME']
     verr = np.float(hdr['VERR'])**2
-    spec_ref = np.genfromtxt('%s.spec.txt' % specList[0], names='wave, flux', dtype='f4, f4')
-    err_ref = np.genfromtxt('%s.err.txt' % specList[0], names='wave, flux', dtype='f4, f4')
+    spec_ref = np.genfromtxt('%s.spec.txt' % spec_list[0], names='wave, flux', dtype='f4, f4')
+    err_ref = np.genfromtxt('%s.err.txt' % spec_list[0], names='wave, flux', dtype='f4, f4')
     err_ref['flux'] = np.where(err_ref['flux'] <= 0, 1, err_ref['flux']) # reset bad error values to 1
     wave = spec_ref['wave']
 
     # spectra and their errors will be stored here
-    spectra = np.zeros((spec_ref.size, len(specList)), dtype='f4')
-    spectraErr = np.zeros((spec_ref.size, len(specList)), dtype='f4')
+    spectra = np.zeros((spec_ref.size, len(spec_list)), dtype='f4')
+    spectraErr = np.zeros((spec_ref.size, len(spec_list)), dtype='f4')
 
     spectra[:, 0] = spec_ref['flux']
     spectraErr[:, 0] = err_ref['flux']
 
-    if use_ratios:
-        ratio = [1]
+    ratio = [1]
 
-    for i, fname in enumerate(specList[1:]):
+    for i, fname in enumerate(spec_list[1:]):
         hdr = pyfits.getheader('%s.spec.fits' % fname)
         exptime += hdr['EXPTIME']
         verr += np.float(hdr['VERR'])**2
-        spec = np.genfromtxt('%s.spec.txt' % fname, names='wave, flux', dtype='f4, f4')
-        err = np.genfromtxt('%s.err.txt' % fname, names='wave, flux', dtype='f4, f4')
-        err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) # reset bad error values to 1
+        spec = np.genfromtxt('%s.spec.txt' % fname, names='wave, flux', 
+                dtype='f4, f4')
+        err = np.genfromtxt('%s.err.txt' % fname, names='wave, flux', 
+                dtype='f4, f4')
+        # reset bad error values to 1
+        err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) 
         spectra[:, i+1] = spec['flux']
         spectraErr[:, i+1] = err['flux']
         if use_ratios:
-            # use the 4200-4300 A region to determine te ratio of spectra
-            good = np.where((spec['wave'] > 4200) & (spec['wave'] < 4300))
+            # use the specified region to determine te ratio of spectra
+            good = np.where((spec['wave'] > ratio_range[0]) & 
+                    (spec['wave'] < ratio_range[1]))
             ratio.append(np.median(spec_ref['flux'][good]/spec['flux'][good]))
-
-    if use_ratios:
-        ratio = np.array(ratio)
-        print ratio
-    else:
-        # match spectra using least-squares
-        fa = {'spectra':spectra, 'spectraErr':spectraErr}
-        p0 = np.ones(len(specList)-1, dtype='f8')
-        parbase={'value':0., 'fixed':0, 'limited':[0,0], 'limits':[0.,0.]}
-        parinfo=[]
-        for i in range(len(p0)):
-            parinfo.append(copy.deepcopy(parbase))
-        #TODO: replace this with scipy.optimize.minpack.leastsq
-        m = mpfit(matchSpectra, p0,functkw=fa, parinfo=parinfo, quiet=True)
-        if (m.status <= 0):
-            print 'error message = ', m.errmsg
-        ratio = np.append(1, m.params)
-        print ratio
+        else:
+            ratio.append(match_spectra_leastsq(spec['flux'], spec_ref['flux'],
+                    err['flux'], err_ref['flux']))
 
     spec_avg, sum_weights = np.average(spectra*ratio, weights=1./(spectraErr*ratio)**2, axis=1, returned=True)
     spec_err = 1./np.sqrt(sum_weights)
@@ -723,15 +719,15 @@ def combineSpectra(specList, outSpecFname, use_ratios=False):
     g.close()
     h.close()
     # save as 1D IRAF FITS files
-    iraf.delete('%s.spec.fits' % outSpecFname, verify="no")
-    iraf.delete('%s.err.fits' % outSpecFname, verify="no")
-    iraf.delete('%s.snr.fits' % outSpecFname, verify="no")
-    iraf.rspectext('coadd.txt', '%s.spec.fits' % outSpecFname, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-    iraf.rspectext('err.txt', '%s.err.fits' % outSpecFname, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-    iraf.rspectext('snr.txt', '%s.snr.fits' % outSpecFname, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.delete('%s.spec.fits' % out_name, verify="no")
+    iraf.delete('%s.err.fits' % out_name, verify="no")
+    iraf.delete('%s.snr.fits' % out_name, verify="no")
+    iraf.rspectext('coadd.txt', '%s.spec.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.rspectext('err.txt', '%s.err.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.rspectext('snr.txt', '%s.snr.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
     # add EXPTIME and MJD keywords
     mjd += exptime/(2.*60.*60.*24.)
-    f = pyfits.open('%s.spec.fits' % outSpecFname)
+    f = pyfits.open('%s.spec.fits' % out_name)
     hdr = f[0].header
     f[0].header.update('DATE-OBS', date_obs)
     f[0].header.update('MJD', np.round(mjd, decimals=6))
@@ -739,148 +735,24 @@ def combineSpectra(specList, outSpecFname, use_ratios=False):
     f[0].header.update('OBSERVAT', observat)
     f[0].header.update('EPOCH', epoch)
     f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s at 4750 A')
-    f.writeto('%s.spec.fits' % outSpecFname, clobber=True)
+    f.writeto('%s.spec.fits' % out_name, clobber=True)
     f.close()
     iraf.delete('snr.txt', verify="no")
     iraf.delete('coadd.txt', verify="no")
     iraf.delete('err.txt', verify="no")
 
-def addRaDec(specFname):
-    radec = np.genfromtxt('radec_targets', names='name, ra, dec, rad, decd', dtype='|S90, |S90, |S90, f8, f8')
-    good = np.where(radec['name'] == specFname)[0]
-    radec = radec[good]
-    f = pyfits.open('%s.spec.fits' % specFname)
-    f[0].header.update('RA', str(radec['ra'][0]))
-    f[0].header.update('DEC', str(radec['dec'][0]))
-    f[0].header.update('RAD', radec['rad'][0])
-    f[0].header.update('DECD', radec['decd'][0])
-    f[0].header.update('OBJECT', specFname)
-    f.writeto('%s.spec.fits' % specFname, clobber=True)
-    f.close()
-
-def normalizeToContinuum(specFname):
-    hdr = pyfits.getheader('%s.spec.fits' % specFname)
+def normalize_to_continuum(imgID, side='blue'):
+    rootname = '%s%04d' % (side,imgID)
+    hdr = pyfits.getheader('%s.spec.fits' % rootname)
     iraf.unlearn('continuum')
     iraf.continuum.order = 25
     iraf.continuum.high_rej = 5
     iraf.continuum.low_rej = 2
     iraf.continuum.niterate = 10
     iraf.continuum.type = "ratio"
-    iraf.continuum('%s.spec.fits' % specFname, 'n_%s.fits' % specFname, interactive="no")
+    iraf.continuum('%s.spec.fits' % rootname, 'norm_%s.fits' % rootname, 
+            interactive="no")
     iraf.unlearn('hedit')
-    iraf.hedit('n_%s.fits' % specFname, 'np2', hdr['NAXIS1'], add="yes", update="yes", verify="no")
-    iraf.imcopy('n_%s.fits' % specFname, 'n_%s.imh' % specFname)
-
-def velErrEstimate(specFname, N_samples=100):
-
-    # load a spectrum and its uncertainty
-    spec, hdr = pyfits.getdata('%s.spec.fits' % specFname, header=True)
-    err = pyfits.getdata('%s.err.fits' % specFname)
-    wave = hdr['CRVAL1'] + hdr['CDELT1']*np.arange(spec.size)
-
-    # reset bad values
-    bad = np.where((spec <= 0) | (err <= 0))
-    spec[bad] = 0.0
-    err[bad] = 1.0
-
-    # create a mock sample of spectra
-    if not os.access("samples", os.F_OK):
-        os.mkdir("samples")
-    g = open('mock.lst', 'w')
-    for i in np.arange(N_samples):
-#        mock = spec + np.abs(err*np.random.randn(err.size))
-        mock = spec + np.random.poisson(err**2)
-        f = open('temp.txt', 'w')
-        for x, y in zip(wave, mock):
-            f.write('%.2f %.2f\n' % (x,y))
-        f.close()
-        iraf.rspectext('temp.txt', 'samples/mock_%d.fits' % i, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-        g.write('samples/mock_%d.fits\n' % i)
-    g.close()
-    os.unlink('temp.txt')
-
-    ## run FXCOR
-    # load packages
-    iraf.noao()
-    iraf.rv()
-    iraf.imutil()
-    iraf.astutil()
-    iraf.onedspec()
-
-    # set up observatory
-    iraf.unlearn('observatory')
-
-    iraf.unlearn('keywpars')
-
-    iraf.unlearn('continpars')
-    iraf.continpars.order = 25
-    iraf.continpars.high_rej = 5
-    iraf.continpars.low_rej = 2
-    iraf.continpars.niterate = 10
-
-    iraf.unlearn('filtpars')
-    #iraf.filtpars.cuton = 6
-    #iraf.filtpars.fullon = 11
-    #iraf.filtpars.cutoff = 568
-    #iraf.filtpars.fulloff = 1138
-
-    iraf.unlearn('fxcor')
-    #iraf.fxcor.osample = '3920-3950,3960-3990,4090-4110,4330-4350,4850-4870'
-    #iraf.fxcor.rsample = '3920-3950,3960-3990,4090-4110,4330-4350,4850-4870'
-    #iraf.fxcor.osample = '4090-4110,4330-4350,4850-4870'
-    #iraf.fxcor.rsample = '4090-4110,4330-4350,4850-4870'
-    iraf.fxcor.peak = "yes"
-    iraf.fxcor.height = 0.75
-    iraf.fxcor.maxwidth = 2000.
-    #iraf.fxcor.filter = "both"
-
-    ## measure radial velocities using various templates
-    iraf.fxcor.osample = '4092-4112,4331-4351,4851-4871'
-    iraf.fxcor.rsample = '4092-4112,4331-4351,4851-4871'
-    #iraf.fxcor("@objects.lst", "@/home/bsesar/projects/DBSP/F2_F9_templates_DBSP_1.0.lst", interactive="no", output = "largest_fxcor", rebin="largest")
-    iraf.fxcor("@mock.lst", "@/home/bsesar/projects/DBSP/kathy_RR_elodie_templates.lst", interactive="no", output = "mock_fxcor", rebin="largest")
-
-    dat = np.genfromtxt('mock_fxcor.txt', names='name, height, tdr, rv, rvErr', usecols=(0,6,8,9,12), dtype='|S90,f4,f4,f4,f4', comments='#')
-    good = np.isfinite(dat['tdr'])
-    dat = dat[good]
-    sI = np.argsort(dat['tdr'])
-    dat = dat[sI[::-1]]
-    os.system('rm mock_fxcor.*')
-
-    # loop over objects and calculate velocities
-    n_templates = 50 # number of templates to average
-    rv_stats = np.zeros(np.unique(dat['name']).size, dtype=[('name', '|S90'), ('rv_mean', 'f4'), ('rv_meanErr', 'f4'), ('rv_best', 'f4'), ('rv_bestErr', 'f4'), ('GSR_corr', 'f4')])
-    for i,name in enumerate(np.unique(dat['name'])):
-        hdr = pyfits.getheader(name, 0)
-        good = np.where(dat['name'] == name)
-        rv = (dat['rv'][good])[0:n_templates]
-        rvErr = (dat['rvErr'][good])[0:n_templates]
-        med = np.median(rv)
-        rms = 0.741*(np.percentile(rv, 75) - np.percentile(rv, 25))
-        good = np.where(np.abs(rv-med) < 3*rms)
-        rv = rv[good]
-        rvErr = rvErr[good]
-        rv_mean, sum_weights = np.average(rv, weights=1./rvErr**2, returned=True)
-        rv_meanErr = 1./np.sqrt(sum_weights)
-        rv_stats['name'][i] = name
-        rv_stats['rv_mean'][i] = rv_mean
-        #rv_stats['rv_meanErr'][i] = np.average(rvErr)
-        rv_stats['rv_meanErr'][i] = rv_meanErr
-        rv_stats['rv_best'][i] = rv[0]
-        rv_stats['rv_bestErr'][i] = rvErr[0]
-
-    os.system("rm -rf samples")
-    os.unlink("mock.lst")
-
-    return np.std(rv_stats['rv_mean'], ddof=1)
-
-if __name__ == '__main__':
-
-    pass
-    #import DBSP
-
-    # create dome flats and the master arc
-    #DBSP.createArcDome(overwrite=True)
-
-    # process one science exposure
-    #DBSP.extract1D_blue(61, redo="yes")
+    iraf.hedit('norm_%s.fits' % rootname, 'np2', hdr['NAXIS1'], 
+            add="yes", update="yes", verify="no")
+    iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)

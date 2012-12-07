@@ -27,7 +27,7 @@ ipython
 change the names of any files you don't want to process (use your log):
 mark_bad('blue',[41,43,50])
 
-createArcDome(side = 'blue')
+create_arc_dome(side = 'blue')
 
 	fit normalization spectrum for temp interactively?  yes
 		
@@ -53,7 +53,7 @@ createArcDome(side = 'blue')
 		the terminal.) 
 
 
-createArcDome(side = 'red')
+create_arc_dome(side = 'red')
 
 store_standards([41,42,43], side='blue',redo='yes')
 store_standards([41,42,43], side='red',redo='yes')
