@@ -605,8 +605,26 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     dw = np.max([dw_blue,dw_red])
 
     # find wavelength ranges
+	def wavelength_range(fits_list):
+		mins = []
+		maxes = []
+		for fname in fits_list:
+			spec = np.genfromtxt(fname, names='wave, flux', 
+					dtype='f4, f4')
+			mins.append(spec['wave'].min())
+			maxes.append(spec['wave'].max())
+		return [N.array(mins).min(),N.array(maxes).max()]
+
+	blue_range = wavelength_range(blue_files)
+	red_range = wavelength_range(red_files)
 
     # find overlap region
+	if red_range[0] >= blue_range[1]:
+		raise ValueError('No overlap in wavelength solution between sides!')
+
+	# specify total spectral range
+	w1 = blue_range[0]
+	w2 = red_range[1]
 
     # re-disperse to common wavelength solution
     def redisperse_list(files,dw,w1,w2,key='spec'):
@@ -624,18 +642,22 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         for output in disp_files:
             iraf.wspectext(output, output.replace('fits','txt'), header="no")
 
-    redisperse_list(blue_files,dw)
-    redisperse_list(red_files,dw)
-    redisperse_list(blue_err_files,dw,key='err')
-    redisperse_list(red_err_files,dw,key='err')
+		return disp_files
+
+    blue_files_redisp = redisperse_list(blue_files,dw,w1,w2)
+    red_files_redisp = redisperse_list(red_files,dw,w1,w2)
+    blue_err_files_redisp = redisperse_list(blue_err_files,dw,w1,w2,key='err')
+    red_err_files_redisp = redisperse_list(red_err_files,dw,w1,w2,key='err')
 
     # combine individual sides
+	combine_spectra(blue_files_redisp,'tmp-blue.fits')
+	combine_spectra(red_files_redisp,'tmp-red.fits')
 
     # find optimum weighting between sides
 
     # combine sides, weighted by uncertainties
+	combine_spectra(['tmp-blue.fits','tmp-red.fits'],output)
 
-    # generate output files
 
     # clean up
     iraf.delete('blue*.trim.fits',verify='no')
@@ -659,7 +681,7 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
     else:
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
-def combine_spectra_oneside(spec_list_fits, out_name, 
+def combine_spectra(spec_list_fits, out_name, 
     use_ratios=False, ratio_range=[4200,4300]):
     """Scales input 1D spectra onto the same scale
        and then combines spectra using a weighted mean.
@@ -679,19 +701,24 @@ def combine_spectra_oneside(spec_list_fits, out_name,
             dtype='f4, f4')
     err_ref = np.genfromtxt(spec_list_txt[0].replace('spec','err'), 
             names='wave, flux', dtype='f4, f4')
-
-    err_ref['flux'] = np.where(err_ref['flux'] <= 0, 1, err_ref['flux']) # reset bad error values to 1
     wave = spec_ref['wave']
+	spec_ref = spec_ref['flux'].view(np.ma.masked_array)
+	err_ref = err_ref['flux'].view(np.ma.masked_array)
+
+
+    #err_ref['flux'] = np.where(err_ref['flux'] <= 0, 1, err_ref['flux']) # reset bad error values to 1
+    # boolean array: mask out invalid regions so average excludes zeros
+    bad_err = err_ref <= 0
+	spec_ref[bad_err] = np.ma.masked
+	err_ref[bad_err] = np.ma.masked
+
 
     # spectra and their errors will be stored here
     spectra = np.ma.zeros((spec_ref.size, len(spec_list_fits)), dtype='f4')
-    spectraErr = np.ma.zeros((spec_ref.size, len(spec_list_fits)), dtype='f4')
+    spectra_err = np.ma.zeros((spec_ref.size, len(spec_list_fits)), dtype='f4')
 
-    spectra[:, 0] = spec_ref['flux']
-    spectraErr[:, 0] = err_ref['flux']
-    # boolean array: mask out invalid regions so average include zeros
-    ref_good_err = err_ref['flux'] > 0
-	1/0 # TODO finish this part!
+    spectra[:, 0] = spec_ref
+    spectra_err[:, 0] = err_ref
 
     ratio = [1]
 
@@ -703,25 +730,31 @@ def combine_spectra_oneside(spec_list_fits, out_name,
         spec = np.genfromtxt(fname_txt, names='wave, flux', dtype='f4, f4')
         err = np.genfromtxt(fname_txt.replace('spec','err'), 
 				names='wave, flux', dtype='f4, f4')
+		spec = spec['flux'].view(np.ma.masked_array)
+		err = err['flux'].view(np.ma.masked_array)
         # reset bad error values to 1
-        err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) 
-        spectra[:, i+1] = spec['flux']
-        spectraErr[:, i+1] = err['flux']
+        #err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) 
+		bad_err = err <= 0
+		spec[bad_err] = np.ma.masked
+		err[bad_err] = np.ma.masked
+
+        spectra[:, i+1] = spec
+        spectra_err[:, i+1] = err
         if use_ratios:
             # use the specified region to determine te ratio of spectra
-            good = np.where((spec['wave'] > ratio_range[0]) & 
-                    (spec['wave'] < ratio_range[1]))
-            ratio.append(np.median(spec_ref['flux'][good]/spec['flux'][good]))
+            good = np.where((spec > ratio_range[0]) & 
+                    (spec < ratio_range[1]))
+            ratio.append(np.median(spec_ref[good]/spec[good]))
         else:
-			spec_good_err = err['flux'] > 0
-			# now identify overlap
-			wgd = ref_good_err & spec_good_err
+			spec_good_err = err > 0
+			# identify overlap between sides
+			wgd = (err_ref > 0) & (err > 0)
 
-            ratio.append(match_spectra_leastsq(spec['flux'][wgd], 
-					spec_ref['flux'][wgd], err['flux'][wgd], 
-					err_ref['flux'][wgd]))
+            ratio.append(match_spectra_leastsq(spec[wgd], 
+					spec_ref[wgd], err[wgd], 
+					err_ref[wgd]))
 
-    spec_avg, sum_weights = np.average(spectra*ratio, weights=1./(spectraErr*ratio)**2, axis=1, returned=True)
+    spec_avg, sum_weights = np.average(spectra*ratio, weights=1./(spectra_err*ratio)**2, axis=1, returned=True)
     spec_err = 1./np.sqrt(sum_weights)
     # output coadded spectra and uncertainties
     f = open('coadd.txt', 'w')
