@@ -3,11 +3,13 @@ generate all arcs at once
 copy over new files without overwriting existing ones
 	(cp --no-clobber raw/*.fits .)
 wrapper for single extract-combine-plot run
-switches to supress prompts where possible
 script to "undo" various parts of the analysis?  eg, start from scratch w/
 	standards
 brani suggests only using arcs taken in a single batch--need to adjust code
 	logic
+
+should fluxed offsets for coadding/joinging spectra be additive rather than
+	multiplicative?
 
 (calculate gain & readnoise from cal files)
 

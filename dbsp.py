@@ -609,11 +609,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         mins = []
         maxes = []
         for fname in fits_list:
-            spec = np.genfromtxt(fname, names='wave, flux', 
+            spec = np.genfromtxt(fname.replace('fits','txt'), names='wave, flux', 
                     dtype='f4, f4')
             mins.append(spec['wave'].min())
             maxes.append(spec['wave'].max())
-        return [N.array(mins).min(),N.array(maxes).max()]
+        return [np.array(mins).min(),np.array(maxes).max()]
 
     blue_range = wavelength_range(blue_files)
     red_range = wavelength_range(red_files)
@@ -636,6 +636,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         iraf.dispcor.output = output_disp_list
         # keep existing wavelength endpoints
         iraf.dispcor.dw = dw
+        iraf.dispcor.w1 = w1
+        iraf.dispcor.w2 = w2
         iraf.dispcor.flux = 'no'
         iraf.dispcor()
         # write text files
@@ -644,23 +646,33 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
         return disp_files
 
+    # delete any lingering files
+    iraf.delete('*-disp.fits',verify='no')
+    iraf.delete('*-disp.txt',verify='no')
+    
+    if splot == 'yes':
+        iraf.splot(output)
+
     blue_files_redisp = redisperse_list(blue_files,dw,w1,w2)
     red_files_redisp = redisperse_list(red_files,dw,w1,w2)
     blue_err_files_redisp = redisperse_list(blue_err_files,dw,w1,w2,key='err')
     red_err_files_redisp = redisperse_list(red_err_files,dw,w1,w2,key='err')
 
     # combine individual sides
-    combine_spectra(blue_files_redisp,'tmp-blue.fits')
-    combine_spectra(red_files_redisp,'tmp-red.fits')
+    coadd_spectra(blue_files_redisp,'tmp-blue')
+    coadd_spectra(red_files_redisp,'tmp-red')
 
     # find optimum weighting between sides
 
     # combine sides, weighted by uncertainties
-    combine_spectra(['tmp-blue.fits','tmp-red.fits'],output)
+    coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output)
 
 
     # clean up
-    iraf.delete('blue*.trim.fits',verify='no')
+    iraf.delete('*-disp.fits',verify='no')
+    iraf.delete('*-disp.txt',verify='no')
+    #iraf.delete('tmp-*.fits',verify='no')
+    #iraf.delete('tmp-*.txt',verify='no')
     
     if splot == 'yes':
         iraf.splot(output)
@@ -681,7 +693,7 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
     else:
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
-def combine_spectra(spec_list_fits, out_name, 
+def coadd_spectra(spec_list_fits, out_name, 
     use_ratios=False, ratio_range=[4200,4300]):
     """Scales input 1D spectra onto the same scale
        and then combines spectra using a weighted mean.
@@ -757,13 +769,13 @@ def combine_spectra(spec_list_fits, out_name,
     spec_avg, sum_weights = np.average(spectra*ratio, weights=1./(spectra_err*ratio)**2, axis=1, returned=True)
     spec_err = 1./np.sqrt(sum_weights)
     # output coadded spectra and uncertainties
-    f = open('coadd.txt', 'w')
-    g = open('err.txt', 'w')
-    h = open('snr.txt', 'w')
+    f = open('%s.spec.txt' % out_name, 'w')
+    g = open('%s.err.txt' % out_name, 'w')
+    h = open('%s.snr.txt' % out_name, 'w')
     for x, y, z in zip(wave, spec_avg, spec_err):
-        f.write('%.3f %.3f\n' % (x, y))
-        g.write('%.3f %.3f\n' % (x, z))
-        h.write('%.3f %.3f\n' % (x, y/z))
+        f.write('%.3f %.5g\n' % (x, y))
+        g.write('%.3f %.5g\n' % (x, z))
+        h.write('%.3f %.5g\n' % (x, y/z))
     f.close()
     g.close()
     h.close()
@@ -771,9 +783,12 @@ def combine_spectra(spec_list_fits, out_name,
     iraf.delete('%s.spec.fits' % out_name, verify="no")
     iraf.delete('%s.err.fits' % out_name, verify="no")
     iraf.delete('%s.snr.fits' % out_name, verify="no")
-    iraf.rspectext('coadd.txt', '%s.spec.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-    iraf.rspectext('err.txt', '%s.err.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-    iraf.rspectext('snr.txt', '%s.snr.fits' % out_name, crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.rspectext('%s.spec.txt' % out_name, '%s.spec.fits' % out_name, 
+            crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.rspectext('%s.err.txt' % out_name, '%s.err.fits' % out_name, 
+            crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
+    iraf.rspectext('%s.snr.txt' % out_name, '%s.snr.fits' % out_name, 
+            crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
     # add EXPTIME and MJD keywords
     mjd += exptime/(2.*60.*60.*24.)
     f = pyfits.open('%s.spec.fits' % out_name)
@@ -786,9 +801,6 @@ def combine_spectra(spec_list_fits, out_name,
     f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s at 4750 A')
     f.writeto('%s.spec.fits' % out_name, clobber=True)
     f.close()
-    iraf.delete('snr.txt', verify="no")
-    iraf.delete('coadd.txt', verify="no")
-    iraf.delete('err.txt', verify="no")
 
 def normalize_to_continuum(imgID, side='blue'):
     rootname = '%s%04d' % (side,imgID)
