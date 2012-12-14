@@ -318,7 +318,9 @@ def store_standards(imgID_list, side='blue', trace=None,
 
 
 
-def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', resize='yes', flux=False, reextract=False, crval=None, cdelt=None):
+def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', 
+        resize='yes', flux=False, telluric_cal_id=None, reextract=False, 
+        crval=None, cdelt=None):
 
     assert (side in ['blue','red'])
     assert (splot in ['yes','no'])
@@ -406,6 +408,17 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', r
     #print arc, iraf.doslit.crval, iraf.doslit.cdelt
     #iraf.epar('doslit')
     iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
+
+    # correct tellurics, if requested
+    if telluric_cal_id is not None:
+        iraf.unlearn('telluric')
+        iraf.telluric.input = rootname + '.ms.fits'
+        iraf.telluric.output = ""
+        iraf.telluric.cal = '%s%04d.spec.fits' % (side,telluric_cal_id)
+        iraf.telluric.ignoreaps = 'yes'
+        iraf.telluric.xcorr = 'yes'
+        iraf.telluric.tweakrms = 'yes'
+        iraf.telluric()
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
@@ -694,8 +707,8 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
 def coadd_spectra(spec_list_fits, out_name, 
-    use_ratios=False, ratio_range=[4200,4300]):
-    """Scales input 1D spectra onto the same scale
+    use_ratios=False, ratio_range=[4200,4300], scale_spectra=True):
+    """Scales input 1D spectra onto the same scale multiplicatively
        and then combines spectra using a weighted mean.
     """
 
@@ -752,19 +765,22 @@ def coadd_spectra(spec_list_fits, out_name,
 
         spectra[:, i+1] = spec
         spectra_err[:, i+1] = err
-        if use_ratios:
-            # use the specified region to determine te ratio of spectra
-            good = np.where((spec > ratio_range[0]) & 
-                    (spec < ratio_range[1]))
-            ratio.append(np.median(spec_ref[good]/spec[good]))
-        else:
-            spec_good_err = err > 0
-            # identify overlap between sides
-            wgd = (err_ref > 0) & (err > 0)
+        if scale:
+            if use_ratios:
+                # use the specified region to determine te ratio of spectra
+                good = np.where((spec > ratio_range[0]) & 
+                        (spec < ratio_range[1]))
+                ratio.append(np.median(spec_ref[good]/spec[good]))
+            else:
+                spec_good_err = err > 0
+                # identify overlap between sides
+                wgd = (err_ref > 0) & (err > 0)
 
-            ratio.append(match_spectra_leastsq(spec[wgd], 
-                    spec_ref[wgd], err[wgd], 
-                    err_ref[wgd]))
+                ratio.append(match_spectra_leastsq(spec[wgd], 
+                        spec_ref[wgd], err[wgd], 
+                        err_ref[wgd]))
+
+            
 
     spec_avg, sum_weights = np.average(spectra*ratio, weights=1./(spectra_err*ratio)**2, axis=1, returned=True)
     spec_err = 1./np.sqrt(sum_weights)
