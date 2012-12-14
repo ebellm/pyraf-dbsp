@@ -410,11 +410,14 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # correct tellurics, if requested
-    if telluric_cal_id is not None:
+    if telluric_cal_id is not None and side == 'red':
+        tell_rootname = '%s%04d' % (side,telluric_cal_id)
+        if not os.path.exists('norm_' + tell_rootname + '.fits'):
+            normalize_to_continuum(telluric_cal_id,side=side)
         iraf.unlearn('telluric')
         iraf.telluric.input = rootname + '.ms.fits'
         iraf.telluric.output = ""
-        iraf.telluric.cal = '%s%04d.spec.fits' % (side,telluric_cal_id)
+        iraf.telluric.cal = 'norm_%s.fits' % tell_rootname
         iraf.telluric.ignoreaps = 'yes'
         iraf.telluric.xcorr = 'yes'
         iraf.telluric.tweakrms = 'yes'
@@ -832,7 +835,7 @@ def normalize_to_continuum(imgID, side='blue'):
     iraf.unlearn('hedit')
     iraf.hedit('norm_%s.fits' % rootname, 'np2', hdr['NAXIS1'], 
             add="yes", update="yes", verify="no")
-    iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
+    #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
 def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
