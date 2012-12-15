@@ -1,3 +1,7 @@
+KNOWN PROBLEMS:
+	absorption features in the "featureless" telluric calibration will 
+	become emission features in the corrected spectrum
+
 todos:  
 generate all arcs at once
 copy over new files without overwriting existing ones

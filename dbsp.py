@@ -286,7 +286,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
 
 def store_standards(imgID_list, side='blue', trace=None, 
     arc=None, splot='no', redo='no', resize='yes', 
-    crval=None, cdelt=None, extract=True):
+    crval=None, cdelt=None, extract=True, telluric_cal_id=None):
 
     # first extract all the standard spectra
     if extract:
@@ -300,7 +300,11 @@ def store_standards(imgID_list, side='blue', trace=None,
                 redo = 'no'
             
             extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
-                redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt)
+                redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt,
+				telluric_cal_id = telluric_cal_id)
+
+    iraf.delete('std-{}'.format(side),verify='no')
+    iraf.delete('sens-{}'.format(side),verify='no')
 
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
@@ -309,6 +313,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     for imgID in imgID_list:
         # use the extracted spectrum!
         iraf.standard('%s%04d.spec.fits' % (side,imgID))
+
     iraf.unlearn('sensfunc')
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
@@ -836,6 +841,15 @@ def normalize_to_continuum(imgID, side='blue'):
     iraf.hedit('norm_%s.fits' % rootname, 'np2', hdr['NAXIS1'], 
             add="yes", update="yes", verify="no")
     #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
+
+def stack_plot(spec_list):
+	import matplotlib.pyplot as plt
+	for spec in spec_list:
+		dat = np.genfromtxt(spec, names='wave, flux', 
+            dtype='f4, f4')
+		plt.plot(dat['wave'],dat['flux'],label = spec)
+	plt.legend()
+	plt.show()
 
 def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
