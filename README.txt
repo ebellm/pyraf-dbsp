@@ -3,6 +3,7 @@ KNOWN PROBLEMS:
 	become emission features in the corrected spectrum
 
 todos:  
+install David's updated cosmics.py
 generate all arcs at once
 copy over new files without overwriting existing ones
 	(cp --no-clobber raw/*.fits .)
@@ -31,6 +32,7 @@ ipython
 
 
 change the names of any files you don't want to process (use your log):
+	especially focus/test exposures from the beginning of the night
 mark_bad('blue',[41,43,50])
 
 create_arc_dome(side = 'blue')
@@ -61,8 +63,14 @@ create_arc_dome(side = 'blue')
 
 create_arc_dome(side = 'red')
 
-store_standards([41,42,43], side='blue',redo='yes')
-store_standards([41,42,43], side='red',redo='yes')
+# look at your flats in ds9 before continuing to make sure they don't have any
+# weird features!
+
+# for telluric correction, if desired
+extract1D(77,side='red')
+
+store_standards([41,42,43], side='blue')
+store_standards([41,42,43], side='red',telluric_cal_id = 77)
 
 	for now, only use a single standard
 

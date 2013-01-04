@@ -160,7 +160,9 @@ def make_flats(side='blue',overwrite=False):
     for aperture in ['0.5','1.0', '1.5', '2.0']:
         # find dome flat images
         domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
-        domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000"' % aperture, Stdout=1)
+		# safest to check that IMGTYPE = flat 
+		# otherwise zenith pointings can get into the flats
+        domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000" & IMGTYPE == "flat"' % aperture, Stdout=1)
         # find internal flat (incandescent lamp) images
         intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
         intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS == "1.000"' % aperture, Stdout=1)
@@ -773,7 +775,7 @@ def coadd_spectra(spec_list_fits, out_name,
 
         spectra[:, i+1] = spec
         spectra_err[:, i+1] = err
-        if scale:
+        if scale_spectra:
             if use_ratios:
                 # use the specified region to determine te ratio of spectra
                 good = np.where((spec > ratio_range[0]) & 
@@ -842,12 +844,19 @@ def normalize_to_continuum(imgID, side='blue'):
             add="yes", update="yes", verify="no")
     #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
-def stack_plot(spec_list):
+def stack_plot(spec_list, offset = False, alpha=1.):
 	import matplotlib.pyplot as plt
+	import time
+
+	offset_val = 0.
 	for spec in spec_list:
 		dat = np.genfromtxt(spec, names='wave, flux', 
             dtype='f4, f4')
-		plt.plot(dat['wave'],dat['flux'],label = spec)
+		plt.plot(dat['wave'],dat['flux']+offset_val,label = spec,alpha=alpha)
+		if offset:
+			offset_val -= np.median(dat['flux'])
+		print spec
+	#	time.sleep(5)
 	plt.legend()
 	plt.show()
 
