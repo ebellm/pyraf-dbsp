@@ -239,7 +239,8 @@ def make_arcs_red(slit=0.5, overwrite=False):
             verify='no')
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
-def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
+def preprocess_image(filename, side='blue', flatcor = 'yes', 
+	remove_cosmics=True, trace=None):
     """bias subtract, flat correct, 
     add header info if needed, and remove cosmic rays"""
 
@@ -277,7 +278,8 @@ def preprocess_image(filename, side='blue', flatcor = 'yes', trace=None):
         iraf.asthedit(filename, '/home/bsesar/opt/python/DBSP.hdr')
 
     # remove cosmic rays with LA Cosmic
-    if 'COSMIC' not in hdr and hdr['EXPTIME'] > 60:
+    if remove_cosmics and ('COSMIC' not in hdr) and (hdr['EXPTIME'] > 60) and \
+			(hdr['TURRET'] == 'APERTURE'):
         array, header = pyfits.getdata(filename, header=True)
         c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
         readnoise=det_pars[side]['readnoise'], 
@@ -358,7 +360,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     preprocess_image(rootname+'.fits', side=side, trace=trace)
 
     #preprocess the arc image
-    preprocess_image(arc, side=side, trace=trace, flatcor='no')
+    preprocess_image(arc, side=side, trace=trace, flatcor='no', 
+		remove_cosmics=False)
 
     # set up doslit
     fwhm = 4.6
