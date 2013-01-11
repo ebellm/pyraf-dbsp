@@ -31,7 +31,7 @@ def is_new_red_camera():
             hdr = pyfits.getheader(name)
             if hdr['NAXIS1'] == 4141:
                 return True
-            elif hdr['NAXIS1'] == 1024:
+            elif hdr['NAXIS1'] == 1024 or hdr['NAXIS1'] == 1124:
                 return False
             else:
                 raise ValueError('Unexpected image size')
@@ -142,12 +142,32 @@ def fix_bad_column_blue():
     science = iraf.hselect('blue????.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
     science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
     f = pyfits.open(science[0])
-    bad_column = f[0].data[1062,:].argmin() + 1
+    bad_column = f[0].data[1608,:].argmin() + 1
     f.close()
     f = open('bluebpm', 'w')
     f.write('%d %d 1 2835\n' % (bad_column, bad_column))
     f.close()
     iraf.fixpix('blue????.fits', "bluebpm")
+    
+def find_flats(aperture, side='blue'):
+    # find dome flat images
+    domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
+    # safest to check that IMGTYPE = flat 
+    # otherwise zenith pointings can get into the flats
+    domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000" & IMGTYPE == "flat"' % aperture, Stdout=1)
+    # find internal flat (incandescent lamp) images
+    intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
+    intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS == "1.000"' % aperture, Stdout=1)
+    # dome flats are prefered over internal flats
+    flats = []
+    if (len(intflats) > 0) & (len(domeflats) == 0):
+        flats = intflats
+        print "Using %d internal flats for the %s arcsec slit." % (len(intflats), aperture)
+    if len(domeflats) > 3:
+        flats = domeflats
+        print "Using %d dome flats for the %s arcsec slit." % (len(domeflats), aperture)
+
+    return flats
 
 def make_flats(side='blue',overwrite=False):
     # create dome flat images
@@ -158,22 +178,7 @@ def make_flats(side='blue',overwrite=False):
     iraf.flatcombine.rdnoise = "RON"
     iraf.flatcombine.gain = "GAIN"
     for aperture in ['0.5','1.0', '1.5', '2.0']:
-        # find dome flat images
-        domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
-		# safest to check that IMGTYPE = flat 
-		# otherwise zenith pointings can get into the flats
-        domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000" & IMGTYPE == "flat"' % aperture, Stdout=1)
-        # find internal flat (incandescent lamp) images
-        intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
-        intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS == "1.000"' % aperture, Stdout=1)
-        # dome flats are prefered over internal flats
-        flats = []
-        if (len(intflats) > 0) & (len(domeflats) == 0):
-            flats = intflats
-            print "Using %d internal flats for the %s arcsec slit." % (len(intflats), aperture)
-        if len(domeflats) > 3:
-            flats = domeflats
-            print "Using %d dome flats for the %s arcsec slit." % (len(domeflats), aperture)
+        flats = find_flats(aperture, side=side)
         if len(flats) > 0:
             if overwrite:
                 iraf.delete('flat_%s_%s.fits' % (side, aperture), verify='no')
@@ -240,7 +245,7 @@ def make_arcs_red(slit=0.5, overwrite=False):
     iraf.imcombine(','.join(arcs), 'HeNeAr_{}'.format(aperture), reject="none")
 
 def preprocess_image(filename, side='blue', flatcor = 'yes', 
-	remove_cosmics=True, trace=None):
+    remove_cosmics=True, trace=None):
     """bias subtract, flat correct, 
     add header info if needed, and remove cosmic rays"""
 
@@ -279,7 +284,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
 
     # remove cosmic rays with LA Cosmic
     if remove_cosmics and ('COSMIC' not in hdr) and (hdr['EXPTIME'] > 60) and \
-			(hdr['TURRET'] == 'APERTURE'):
+            (hdr['TURRET'] == 'APERTURE'):
         array, header = pyfits.getdata(filename, header=True)
         c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
         readnoise=det_pars[side]['readnoise'], 
@@ -305,7 +310,7 @@ def store_standards(imgID_list, side='blue', trace=None,
             
             extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
                 redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt,
-				telluric_cal_id = telluric_cal_id)
+                telluric_cal_id = telluric_cal_id)
 
     iraf.delete('std-{}'.format(side),verify='no')
     iraf.delete('sens-{}'.format(side),verify='no')
@@ -361,7 +366,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
 
     #preprocess the arc image
     preprocess_image(arc, side=side, trace=trace, flatcor='no', 
-		remove_cosmics=False)
+        remove_cosmics=False)
 
     # set up doslit
     fwhm = 4.6
@@ -848,20 +853,75 @@ def normalize_to_continuum(imgID, side='blue'):
     #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
 def stack_plot(spec_list, offset = False, alpha=1.):
-	import matplotlib.pyplot as plt
-	import time
+    import matplotlib.pyplot as plt
 
-	offset_val = 0.
-	for spec in spec_list:
-		dat = np.genfromtxt(spec, names='wave, flux', 
+    offset_val = 0.
+    for spec in spec_list:
+        dat = np.genfromtxt(spec, names='wave, flux', 
             dtype='f4, f4')
-		plt.plot(dat['wave'],dat['flux']+offset_val,label = spec,alpha=alpha)
-		if offset:
-			offset_val -= np.median(dat['flux'])
-		print spec
-	#	time.sleep(5)
-	plt.legend()
-	plt.show()
+        plt.plot(dat['wave'],dat['flux']+offset_val,label = spec,alpha=alpha)
+        if offset:
+            offset_val -= np.median(dat['flux'])
+        print spec
+    plt.legend()
+    plt.show()
+
+def find_gain_readnoise(side='blue', aperture='1.0'):
+    """Utility for measuring the gain and readnoise from raw images."""
+    
+    # high statistics section of the flat
+    if side == 'blue':
+        section="[80:350,480:1430]"    
+    elif side == 'red':
+        if NEW_RED_SIDE:
+            section="[1300:3000,50:400]"    
+        else:
+            section="[215:1000,50:265]"    
+    flats = find_flats(aperture, side=side)
+    biases = iraf.hselect('{}????.fits'.format(side), '$I', 
+        'IMGTYPE == "bias" & EXPTIME == 0', Stdout=1)
+    nmin = np.min([len(flats),len(biases)])
+    gain_all = []
+    rdnoise_all = []
+    for i in range(nmin-1):
+        gn, rn = compute_gain_readnoise(flats[i], flats[i+1],
+            biases[i], biases[i+1], section = section)
+        gain_all.append(gn)
+        rdnoise_all.append(rn)
+    #print gain_all, rdnoise_all    
+    print 'Gain: %.3f %.3f' % (np.average(gain_all), np.std(gain_all, ddof=1))
+    print 'Readnoise: %.2f %.2f' % (np.average(rdnoise_all), np.std(rdnoise_all, ddof=1))
+
+
+def compute_gain_readnoise(flat1, flat2, zero1, zero2, section="[*,*]"):
+    iraf.noao(_doprint=0)
+    iraf.obsutil(_doprint=0)
+    iraf.imarith(flat1, '-', flat2, 'flatdif')
+    iraf.imarith(zero1, '-', zero2, 'zerodif')
+    s = iraf.imstat('%s%s' % (flat1, section), fields="mean", nclip=20, 
+        Stdout=1, format="no")
+    mean_flat1 = np.float(s[0])
+    s = iraf.imstat('%s%s' % (flat2, section), fields="mean", nclip=20, 
+        Stdout=1, format="no")
+    mean_flat2 = np.float(s[0])
+    s = iraf.imstat('%s%s' % (zero1, section), fields="mean", nclip=20, 
+        Stdout=1, format="no")
+    mean_zero1 = np.float(s[0])
+    s = iraf.imstat('%s%s' % (zero2, section), fields="mean", nclip=20, 
+        Stdout=1, format="no")
+    mean_zero2 = np.float(s[0])
+    s = iraf.imstat('%s%s' % ('flatdif', section), fields="stddev", nclip=20, 
+        Stdout=1, format="no")
+    sigma_flatdif = np.float(s[0])
+    s = iraf.imstat('%s%s' % ('zerodif', section), fields="stddev", nclip=20, 
+        Stdout=1, format="no")
+    sigma_zerodif = np.float(s[0])
+    gain = (((mean_flat1 + mean_flat2) - (mean_zero1 + mean_zero2)) / 
+        ((sigma_flatdif)**2 - (sigma_zerodif)**2))
+    readnoise = gain * sigma_zerodif / np.sqrt(2)
+    iraf.delete('flatdif.fits', verify="no")
+    iraf.delete('zerodif.fits', verify="no")
+    return gain, readnoise
 
 def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
