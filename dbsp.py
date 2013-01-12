@@ -54,7 +54,7 @@ iraf.onedspec(_doprint=0)
 
 # defaults
 # (blue trace is usually around 250-260)
-det_pars = {'blue':{'gain':0.72,'readnoise':2.5,'trace':253,
+det_pars = {'blue':{'gain':0.8,'readnoise':2.7,'trace':253,
                     'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}} 
 
 if NEW_RED_SIDE:
