@@ -62,7 +62,7 @@ if NEW_RED_SIDE:
                     'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}
 else:
     # old CCD
-    det_pars['red'] = {'gain':2.0,'readnoise':7.5,'trace':130,
+    det_pars['red'] = {'gain':2.05,'readnoise':7.8,'trace':130,
                     'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits'}
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
@@ -139,7 +139,7 @@ def bias_subtract(side='blue',trace=None):
 
 def fix_bad_column_blue():
     # find the bad column using a science exposure
-    science = iraf.hselect('blue????.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
+    science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
     science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
     f = pyfits.open(science[0])
     bad_column = f[0].data[1608,:].argmin() + 1
