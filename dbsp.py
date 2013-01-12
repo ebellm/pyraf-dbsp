@@ -136,14 +136,16 @@ def bias_subtract(side='blue',trace=None):
     iraf.ccdproc.niterate = 3
     iraf.ccdproc('%s????.fits' % side)
 
-
 def fix_bad_column_blue():
     # find the bad column using a science exposure
-    try:
-        science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
-    except:
-        science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
-        science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000" & IMGTYPE != "flat"', Stdout=1)
+    science = iraf.hselect('blue????.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
+    if len(science) > 0:
+        f = open('science_dump', 'w')
+        for fn in science:
+            f.write('%s\n' % fn)
+        f.close()
+    science = iraf.hselect('@science_dump', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
+    os.unlink('science_dump')
     f = pyfits.open(science[0])
     bad_column = f[0].data[1608,:].argmin() + 1
     f.close()
@@ -151,7 +153,7 @@ def fix_bad_column_blue():
     f.write('%d %d 1 2835\n' % (bad_column, bad_column))
     f.close()
     iraf.fixpix('blue????.fits', "bluebpm")
-    
+
 def find_flats(aperture, side='blue'):
     # find dome flat images
     domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
