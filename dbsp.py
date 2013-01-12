@@ -867,11 +867,14 @@ def stack_plot(spec_list, offset = False, alpha=1.):
     plt.show()
 
 def find_gain_readnoise(side='blue', aperture='1.0'):
-    """Utility for measuring the gain and readnoise from raw images."""
+    """Utility for measuring the gain and readnoise from raw images.
+	
+	Adaptation of iraf's findgain utility."""
     
     # high statistics section of the flat
     if side == 'blue':
-        section="[80:350,480:1430]"    
+        section="[80:350,600:800]"
+	# TODO: confirm these sections
     elif side == 'red':
         if NEW_RED_SIDE:
             section="[1300:3000,50:400]"    
