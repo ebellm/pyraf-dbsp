@@ -139,8 +139,11 @@ def bias_subtract(side='blue',trace=None):
 
 def fix_bad_column_blue():
     # find the bad column using a science exposure
-    science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
-    science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
+    try:
+        science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
+    except:
+        science = iraf.hselect('blue00??.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
+        science = iraf.hselect(','.join(science), '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000" & IMGTYPE != "flat"', Stdout=1)
     f = pyfits.open(science[0])
     bad_column = f[0].data[1608,:].argmin() + 1
     f.close()
@@ -868,13 +871,13 @@ def stack_plot(spec_list, offset = False, alpha=1.):
 
 def find_gain_readnoise(side='blue', aperture='1.0'):
     """Utility for measuring the gain and readnoise from raw images.
-	
-	Adaptation of iraf's findgain utility."""
+    
+    Adaptation of iraf's findgain utility."""
     
     # high statistics section of the flat
     if side == 'blue':
         section="[80:350,600:800]"
-	# TODO: confirm these sections
+    # TODO: confirm these sections
     elif side == 'red':
         if NEW_RED_SIDE:
             section="[1300:3000,50:400]"    
