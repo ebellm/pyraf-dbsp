@@ -592,7 +592,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     # statistics
     hdr = pyfits.getheader(rootname + '.spec.fits')
     if hdr['EXPTIME'] > 180:
-        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %f A." % (offset_final, error_at_mid,midpoint_loc[side])
+        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %.0f A." % (offset_final, error_at_mid,midpoint_loc[side])
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
@@ -627,11 +627,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
         output = obj + '_' + \
             ids_to_string(imgID_list_blue) + '+' + \
-            ids_to_string(imgID_list_red) + '.fits'
+            ids_to_string(imgID_list_red) 
 
     # clobber the old output files if they exist
-    iraf.delete(output,verify='no')
-    iraf.delete(output.replace('fits','txt'),verify='no')
+	iraf.delete(output+'.*.fits',verify='no')
+	iraf.delete(output+'.*.txt',verify='no')
     
     # determine dispersion: downsample to lower-resolution spectrum
     hdr = pyfits.getheader(blue_files[0])
@@ -685,9 +685,6 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     # delete any lingering files
     iraf.delete('*-disp.fits',verify='no')
     iraf.delete('*-disp.txt',verify='no')
-    
-    if splot == 'yes':
-        iraf.splot(output)
 
     blue_files_redisp = redisperse_list(blue_files,dw,w1,w2)
     red_files_redisp = redisperse_list(red_files,dw,w1,w2)
@@ -708,11 +705,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     # clean up
     iraf.delete('*-disp.fits',verify='no')
     iraf.delete('*-disp.txt',verify='no')
-    #iraf.delete('tmp-*.fits',verify='no')
-    #iraf.delete('tmp-*.txt',verify='no')
+    iraf.delete('tmp-*.fits',verify='no')
+    iraf.delete('tmp-*.txt',verify='no')
     
     if splot == 'yes':
-        iraf.splot(output)
+        iraf.splot(output+'.spec')
 
 def match_spectra_leastsq(y, yref, yerr, yreferr):
     errfunc = lambda p, y, yref, yerr, yreferr: \
@@ -831,18 +828,21 @@ def coadd_spectra(spec_list_fits, out_name,
     iraf.rspectext('%s.snr.txt' % out_name, '%s.snr.fits' % out_name, 
             crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
     # add EXPTIME and MJD keywords
-    mjd += exptime/(2.*60.*60.*24.)
     f = pyfits.open('%s.spec.fits' % out_name)
-    hdr = f[0].header
     f[0].header.update('DATE-OBS', date_obs)
-    f[0].header.update('MJD', np.round(mjd, decimals=6))
     f[0].header.update('OBSERVAT', observat)
     f[0].header.update('EPOCH', epoch)
 	if one_side:
 		# exposure time and velocity error are only well-defined for
 		# data combined from a single side
 		f[0].header.update('EXPTIME', exptime)
-		f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s at 4750 A')
+		f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s')
+		mjd += exptime/(2.*60.*60.*24.)
+	else:
+		del f[0].header['EXPTIME']
+		del f[0].header['VERR']
+    f[0].header.update('MJD', np.round(mjd, decimals=6))
+
     f.writeto('%s.spec.fits' % out_name, clobber=True)
     f.close()
 
