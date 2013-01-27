@@ -701,7 +701,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     # find optimum weighting between sides
 
     # combine sides, weighted by uncertainties
-    coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output)
+    coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output,
+		one_side=False)
 
 
     # clean up
@@ -730,7 +731,8 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
 def coadd_spectra(spec_list_fits, out_name, 
-    use_ratios=False, ratio_range=[4200,4300], scale_spectra=True):
+    use_ratios=False, ratio_range=[4200,4300], scale_spectra=True,
+	one_side=True):
     """Scales input 1D spectra onto the same scale multiplicatively
        and then combines spectra using a weighted mean.
     """
@@ -834,10 +836,13 @@ def coadd_spectra(spec_list_fits, out_name,
     hdr = f[0].header
     f[0].header.update('DATE-OBS', date_obs)
     f[0].header.update('MJD', np.round(mjd, decimals=6))
-    f[0].header.update('EXPTIME', exptime)
     f[0].header.update('OBSERVAT', observat)
     f[0].header.update('EPOCH', epoch)
-    f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s at 4750 A')
+	if one_side:
+		# exposure time and velocity error are only well-defined for
+		# data combined from a single side
+		f[0].header.update('EXPTIME', exptime)
+		f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s at 4750 A')
     f.writeto('%s.spec.fits' % out_name, clobber=True)
     f.close()
 
