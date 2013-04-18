@@ -510,10 +510,10 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     iraf.doslit.i_function = "legendre"
     iraf.doslit.i_order = 4
     if side == 'blue':
-        iraf.doslit.coordlist = BASE_DIR + '/cal/brani_FeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + '/cal/FeAr_dbsp.dat'
         fwhm_arc = det_pars['blue']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
     else:
-        iraf.doslit.coordlist = BASE_DIR + '/cal/brani_HeNeAr_dbsp.dat'
+        iraf.doslit.coordlist = BASE_DIR + '/cal/HeNeAr_dbsp.dat'
         fwhm_arc = det_pars['red']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10. # positive number is angstrom, negative is pix
