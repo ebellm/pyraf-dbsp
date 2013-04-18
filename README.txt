@@ -2,6 +2,9 @@ KNOWN PROBLEMS:
 	absorption features in the "featureless" telluric calibration will 
 	become emission features in the corrected spectrum
 
+	wavelength solution will fail if gratings/angles other than "PTF standard"
+	are used--should at least warn the user if that is the case
+
 todos:  
 install David's updated cosmics.py
 generate all arcs at once

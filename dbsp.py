@@ -29,7 +29,7 @@ def is_new_red_camera():
         name = 'red{:04d}.fits'.format(id)
         if os.path.exists(name):
             hdr = pyfits.getheader(name)
-            if hdr['NAXIS1'] == 4141:
+            if hdr['NAXIS1'] == 4141 or hdr['NAXIS1'] == 4114:
                 return True
             elif hdr['NAXIS1'] == 1024 or hdr['NAXIS1'] == 1124:
                 return False
@@ -55,15 +55,18 @@ iraf.onedspec(_doprint=0)
 # defaults
 # (blue trace is usually around 250-260)
 det_pars = {'blue':{'gain':0.8,'readnoise':2.7,'trace':253,
-                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits'}} 
+                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits',
+                    'fwhm_arc':2.8}}
 
 if NEW_RED_SIDE:
     det_pars['red'] = {'gain':2.8,'readnoise':8.5,'trace':166,
-                    'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits'}
+                       'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits',
+                       'biassec':'[4128:4141,1:440]', 'fwhm_arc':2.4}
 else:
     # old CCD
     det_pars['red'] = {'gain':2.05,'readnoise':7.8,'trace':130,
-                    'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits'}
+                       'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits',
+                       'biassec':'[1080:1124,1:300]', 'fwhm_arc':1.6}
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
 def mark_bad(side,numbers):
@@ -74,7 +77,7 @@ def mark_bad(side,numbers):
     
     Parameters
     ----------
-    side : string
+    side : {'blue' (default), 'red'}
         'blue' or 'red' to indicate the arm of the spectrograph
     numbers : list of int or int
         image id(s) to be marked as bad.
@@ -93,6 +96,17 @@ def mark_bad(side,numbers):
         os.rename(name, name+'.bad')
 
 def create_arc_dome(side='blue',trace=None,arcslit=0.5,overwrite=True):
+    """Convenience function which subtracts bias, creates dome flats, and
+    creates arc frames.
+    
+    Parameters
+    ----------
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    trace : int
+        row or column of the spectral trace, if different from default.
+
+    """
 
     assert ((side == 'blue') or (side == 'red'))
     if trace is None:
@@ -111,6 +125,16 @@ def create_arc_dome(side='blue',trace=None,arcslit=0.5,overwrite=True):
         make_arcs_red(slit=arcslit,overwrite=overwrite)
 
 def bias_subtract(side='blue',trace=None):
+    """Use iraf.ccdproc to subtract bias from all frames.
+
+    Parameters
+    ----------
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    trace : int
+        row or column of the spectral trace, if different from default.
+    """
+
     # update the headers
     iraf.asthedit('%s????.fits' % side, '/home/bsesar/opt/python/DBSP.hdr')
 
@@ -122,29 +146,35 @@ def bias_subtract(side='blue',trace=None):
     iraf.ccdproc.flatcor = "no"
     iraf.ccdproc.fixpix = "no"
 #    iraf.ccdproc.fixfile = "../bluebpm"
-    iraf.ccdproc.biassec = hdr['BSEC1']
     if side == 'blue':
+        iraf.ccdproc.biassec = hdr['BSEC1']
         iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
+        iraf.ccdproc.function = "spline3"
+        iraf.ccdproc.order = 3
     else:
         # trim the specified region
+        iraf.ccdproc.biassec = det_pars['red']['biassec'] # this may not work for the old camera...
         tsec_x = hdr['TSEC1'].split(',')[0]
         iraf.ccdproc.trimsec = tsec_x + ",%d:%d]" % (trace-100, trace+100)
-    iraf.ccdproc.ccdtype = ""
+        iraf.ccdproc.function = "legendre"
+        iraf.ccdproc.order = 1
     iraf.ccdproc.darkcor = "no"
-    iraf.ccdproc.function = "spline3"
-    iraf.ccdproc.order = 3
+    iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.niterate = 3
     iraf.ccdproc('%s????.fits' % side)
 
 def fix_bad_column_blue():
-    # find the bad column using a science exposure
+    """Uses a science exposure to find the bad column in the blue CCD. 
+    Automatically corrects all blue exposures with iraf.fixpix.
+    """
+
     science = iraf.hselect('blue????.fits', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000"', Stdout=1)
     if len(science) > 0:
         f = open('science_dump', 'w')
         for fn in science:
             f.write('%s\n' % fn)
         f.close()
-    science = iraf.hselect('@science_dump', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS != "1.000"', Stdout=1)
+    science = iraf.hselect('@science_dump', '$I', 'TURRET == "APERTURE" & LAMPS == "0000000" & AIRMASS > 1.01', Stdout=1)
     os.unlink('science_dump')
     f = pyfits.open(science[0])
     bad_column = f[0].data[1608,:].argmin() + 1
@@ -155,14 +185,27 @@ def fix_bad_column_blue():
     iraf.fixpix('blue????.fits', "bluebpm")
 
 def find_flats(aperture, side='blue'):
+    """Finds flat images for the selected aperture and side using 
+    header keywords.  
+    
+    Uses dome flats if present, otherwise falls back on internal flats.
+
+    Parameters
+    ----------
+    aperture : {'0.5','1.0', '1.5', '2.0'}
+        string indicating the slit width
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    """
+
     # find dome flat images
     domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
     # safest to check that IMGTYPE = flat 
     # otherwise zenith pointings can get into the flats
-    domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS == "1.000" & IMGTYPE == "flat"' % aperture, Stdout=1)
+    domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS < 1.01 & IMGTYPE == "flat"' % aperture, Stdout=1)
     # find internal flat (incandescent lamp) images
     intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
-    intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS == "1.000"' % aperture, Stdout=1)
+    intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS < 1.01' % aperture, Stdout=1)
     # dome flats are prefered over internal flats
     flats = []
     if (len(intflats) > 0) & (len(domeflats) == 0):
@@ -175,7 +218,18 @@ def find_flats(aperture, side='blue'):
     return flats
 
 def make_flats(side='blue',overwrite=False):
-    # create dome flat images
+    """Creates dome flat images using iraf.flatcombine.
+
+    Creates flats for all slit widths in ['0.5','1.0', '1.5', '2.0'] if present.
+    Uses dome flats if present, otherwise falls back on internal flats.
+    Stores flats as flat_{side}_{aper}.fits.
+
+    Parameters
+    ----------
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    """
+
     iraf.unlearn('flatcombine')
     iraf.flatcombine.ccdtype = ""
     iraf.flatcombine.process = "no"
@@ -224,7 +278,7 @@ def make_arcs_blue(slit=0.5, overwrite=False):
     iraf.imcombine.gain = det_pars['blue']['gain']
     arcs = iraf.hselect('blue????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
     except:
         pass
     if overwrite:
@@ -241,7 +295,7 @@ def make_arcs_red(slit=0.5, overwrite=False):
     iraf.imcombine.gain = det_pars['red']['gain']
     arcs = iraf.hselect('red????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
     try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS == "1.000"'.format(aperture=aperture), Stdout=1)
+        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
     except:
         pass
     if overwrite:
@@ -263,19 +317,22 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     hdr = pyfits.getheader(filename)
     iraf.unlearn('ccdproc')
     iraf.ccdproc.zerocor = "no"
-    iraf.ccdproc.flatcor = flatcor
+    iraf.ccdproc.flatcor = "no"
     iraf.ccdproc.fixpix = "no"
-    iraf.ccdproc.biassec = hdr['BSEC1']
     if side == 'blue':
+        iraf.ccdproc.biassec = hdr['BSEC1']
         iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
+        iraf.ccdproc.function = "spline3"
+        iraf.ccdproc.order = 3
     else:
         # trim the specified region
+        iraf.ccdproc.biassec = det_pars['red']['biassec']
         tsec_x = hdr['TSEC1'].split(',')[0]
         iraf.ccdproc.trimsec = tsec_x + ",%d:%d]" % (trace-100, trace+100)
+        iraf.ccdproc.function = "legendre"
+        iraf.ccdproc.order = 1
     iraf.ccdproc.ccdtype = ""
     iraf.ccdproc.darkcor = "no"
-    iraf.ccdproc.function = "spline3"
-    iraf.ccdproc.order = 3
     iraf.ccdproc.niterate = 3
     iraf.ccdproc(filename,
         flat="flat_%s_%s" % (side,hdr['APERTURE']))
@@ -335,7 +392,47 @@ def store_standards(imgID_list, side='blue', trace=None,
     #iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
 
+def estimateFWHM(imgID, side='blue'):
+    """
+    Use IRAF's imexam to measure the FWHM of the trace.
+    """
+    iraf.unlearn('imexam')
+    iraf.rimexam.fittype = "gaussian"
+    iraf.delete('trace.xy', verify="no")
+    iraf.delete('fwhm.log', verify="no")
+    # extract the position of the trace
+    f = open('database/ap%s%04d' % (side, imgID), 'r')
+    dat = f.read()
+    xy = dat.split('\n')[5].split()[1:3]
+    f.close()
+    f = open('trace.xy', 'w')
+    f.write('%s %s\n' % (xy[0], xy[1]))
+    f.close()
+    # run imexam
+    if side == 'blue':
+        defkey='j'
+    else:
+        defkey='k'
+    iraf.imexam('%s%04d' % (side, imgID), '1', logfile='fwhm.log', keeplog="yes", defkey=defkey, imagecur='trace.xy', use_display="no", autoredraw="no")
+    # load values
+    f = open('fwhm.log', 'r')
+    dat = f.read()
+    fwhm = float(dat.split('\n')[1].split('=')[4].split()[0])
+    f.close()
+    # cleanup
+    os.unlink("fwhm.log")
+    os.unlink("trace.xy")
 
+    # update the header
+    f = pyfits.open('%s%04d.spec.fits' % (side, imgID))
+    f[0].header.update('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
+    f.writeto('%s%04d.spec.fits' % (side, imgID), clobber=True)
+    f.close()
+    if os.access('%s%04d_flux.spec.fits' % (side, imgID), os.F_OK):
+        f = pyfits.open('%s%04d_flux.spec.fits' % (side, imgID))
+        f[0].header.update('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
+        f.writeto('%s%04d_flux.spec.fits' % (side, imgID), clobber=True)
+        f.close()
 
 def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', 
         resize='yes', flux=False, telluric_cal_id=None, reextract=False, 
@@ -374,13 +471,13 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         remove_cosmics=False)
 
     # set up doslit
-    fwhm = 4.6
+    fwhm = 5.6
     iraf.unlearn('doslit')
     iraf.unlearn('apslitproc')
     iraf.unlearn('aidpars')
     iraf.doslit.readnoise = "RON"
     iraf.doslit.gain = "GAIN"
-    iraf.doslit.width = 3*fwhm
+    iraf.doslit.width = 1.4*fwhm
     iraf.doslit.crval = crval
     iraf.doslit.cdelt = cdelt
     iraf.doslit.nsum = 50
@@ -414,10 +511,10 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     iraf.doslit.i_order = 4
     if side == 'blue':
         iraf.doslit.coordlist = BASE_DIR + '/cal/brani_FeAr_dbsp.dat'
-        fwhm_arc = 2.8 # input FWHM of arc lines here (in pixels)
+        fwhm_arc = det_pars['blue']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
     else:
         iraf.doslit.coordlist = BASE_DIR + '/cal/brani_HeNeAr_dbsp.dat'
-        fwhm_arc = 1.6 # input FWHM of arc lines here (in pixels)
+        fwhm_arc = det_pars['red']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
     iraf.doslit.fwidth = fwhm_arc
     iraf.doslit.match = 10. # positive number is angstrom, negative is pix
     iraf.doslit.i_niterate = 5
@@ -447,7 +544,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
     hdr = pyfits.getheader(rootname + '.fits')
     midpoint_loc = {'blue':4750,'red':7400}
-    if hdr['EXPTIME'] > 180:
+    if hdr['EXPTIME'] > 120:
         iraf.unlearn('scopy')
         # background band
         iraf.delete(rootname + '.2001.fits', verify='no')
@@ -461,7 +558,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
 
         sky_lines = {'blue':
             {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
-            'regs':['4025 4070', '4340 4380', '5440 5480', '5560 5590']},
+            'regs':['4044 4054', '4340 4380', '5440 5480', '5560 5590']},
             'red':
             {'wavelength':[6300.304,6863.955,7340.885,7821.503,8430.174,8827.096],
             'regs':['6270 6320', '6840 6880', '7330 7355', '7810 7835','8420 8450','8800 8835']}}
@@ -513,7 +610,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     # (CRVAL1 doesn't seem to apply the shift correctly?)
     f = pyfits.open(rootname + '.ms.fits')
     hdr = f[0].header
-    if hdr['EXPTIME'] > 180:
+    if hdr['EXPTIME'] > 120:
         f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     else:
@@ -531,7 +628,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     iraf.scopy(rootname + '.ms.fits', rootname, band=4, format="onedspec")
 
     # correct wavelength calibration using sky lines
-    if hdr['EXPTIME'] > 180:
+    if hdr['EXPTIME'] > 120:
         iraf.specshift(rootname + '.0001', '%.3f' % (-offset_final))
         iraf.specshift(rootname + '.3001', '%.3f' % (-offset_final))
 
@@ -591,7 +688,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
 
     # statistics
     hdr = pyfits.getheader(rootname + '.spec.fits')
-    if hdr['EXPTIME'] > 180:
+    if hdr['EXPTIME'] > 120:
         print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %.0f A." % (offset_final, error_at_mid,midpoint_loc[side])
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
@@ -602,6 +699,9 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
     except iraf.IrafError:
         print "Warning: could not imstat SNR"
+
+    # measure FWHM of the trace
+    estimateFWHM(imgID, side=side)
 
 def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     """imgID_lists are lists of numbers of extracted spectra:
@@ -630,8 +730,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
             ids_to_string(imgID_list_red) 
 
     # clobber the old output files if they exist
-	iraf.delete(output+'.*.fits',verify='no')
-	iraf.delete(output+'.*.txt',verify='no')
+    iraf.delete(output+'.*.fits',verify='no')
+    iraf.delete(output+'.*.txt',verify='no')
     
     # determine dispersion: downsample to lower-resolution spectrum
     hdr = pyfits.getheader(blue_files[0])
@@ -699,7 +799,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
     # combine sides, weighted by uncertainties
     coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output,
-		one_side=False)
+        one_side=False)
 
 
     # clean up
@@ -729,7 +829,7 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
 
 def coadd_spectra(spec_list_fits, out_name, 
     use_ratios=False, ratio_range=[4200,4300], scale_spectra=True,
-	one_side=True):
+    one_side=True):
     """Scales input 1D spectra onto the same scale multiplicatively
        and then combines spectra using a weighted mean.
     """
@@ -743,6 +843,14 @@ def coadd_spectra(spec_list_fits, out_name,
     epoch = hdr['EPOCH']
     observat = hdr['OBSERVAT']
     exptime = hdr['EXPTIME']
+    seeing = hdr['FWHM']
+    # save some keywords
+    keys = ['OBJECT', 'OBSERVER', 'DICHROIC', 'APERTURE', 'LAMPS', 'UTSHUT', 'OBSLST', 'RA', 'DEC', 'HOURANG', 'HA', 'TELFOCUS', 'CASSPA', 'PARALLAC', 'CCDTEMP', 'ANGLE', 'GRATING', 'AIRMASS']
+    mjd_blue = hdr['MJD']
+    exptime_blue = hdr['EXPTIME']
+    hdr_save = {}
+    for key in keys:
+        hdr_save[key] = hdr[key]
     verr = np.float(hdr['VERR'])**2
     spec_ref = np.genfromtxt(spec_list_txt[0], names='wave, flux', 
             dtype='f4, f4')
@@ -773,6 +881,7 @@ def coadd_spectra(spec_list_fits, out_name,
         fname_txt = spec_list_txt[i+1]
         hdr = pyfits.getheader(fname)
         exptime += hdr['EXPTIME']
+        seeing += hdr['FWHM']
         verr += np.float(hdr['VERR'])**2
         spec = np.genfromtxt(fname_txt, names='wave, flux', dtype='f4, f4')
         err = np.genfromtxt(fname_txt.replace('spec','err'), 
@@ -810,6 +919,20 @@ def coadd_spectra(spec_list_fits, out_name,
     f = open('%s.spec.txt' % out_name, 'w')
     g = open('%s.err.txt' % out_name, 'w')
     h = open('%s.snr.txt' % out_name, 'w')
+    # add some header keywords
+    for key in hdr_save.keys():
+        f.write('# %s = %s\n' % (key, hdr_save[key]))
+    if one_side:
+        # exposure time and velocity error are only well-defined for
+        # data combined from a single side
+        f.write('# FWHM = %.2f\n' % float(seeing/len(spec_list_fits)))
+        f.write('# VERR = %.2f\n' % np.sqrt(verr))
+        f.write('# MJD = %.6f\n' % (mjd + exptime/(2.*60.*60.*24.)))
+    else:
+        # when combining sides, use the MJD and EXPTIME from the combined blue side
+        f.write('# EXPTIME = %.0f\n' % exptime_blue)
+        f.write('# MJD = %.6f\n' % mjd_blue)
+
     for x, y, z in zip(wave, spec_avg, spec_err):
         f.write('%.3f %.5g\n' % (x, y))
         g.write('%.3f %.5g\n' % (x, z))
@@ -827,20 +950,24 @@ def coadd_spectra(spec_list_fits, out_name,
             crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
     iraf.rspectext('%s.snr.txt' % out_name, '%s.snr.fits' % out_name, 
             crval1 = hdr['CRVAL1'], cdelt1 = hdr['CDELT1'])
-    # add EXPTIME and MJD keywords
+    # add keywords
     f = pyfits.open('%s.spec.fits' % out_name)
+    for key in hdr_save.keys():
+        f[0].header.update(key, hdr_save[key])
     f[0].header.update('DATE-OBS', date_obs)
     f[0].header.update('OBSERVAT', observat)
     f[0].header.update('EPOCH', epoch)
-	if one_side:
-		# exposure time and velocity error are only well-defined for
-		# data combined from a single side
-		f[0].header.update('EXPTIME', exptime)
-		f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s')
-		mjd += exptime/(2.*60.*60.*24.)
-	else:
-		del f[0].header['EXPTIME']
-		del f[0].header['VERR']
+    if one_side:
+        # exposure time and velocity error are only well-defined for
+        # data combined from a single side
+        f[0].header.update('EXPTIME', exptime)
+        f[0].header.update('FWHM', seeing/len(spec_list_fits))
+        f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s')
+        mjd += exptime/(2.*60.*60.*24.)
+    else:
+        # when combining sides, use the EXPTIME from the combined blue side
+        f[0].header.update('EXPTIME', exptime_blue)
+        del f[0].header['VERR']
     f[0].header.update('MJD', np.round(mjd, decimals=6))
 
     f.writeto('%s.spec.fits' % out_name, clobber=True)
