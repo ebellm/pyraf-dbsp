@@ -228,6 +228,9 @@ def make_flats(side='blue',overwrite=False):
     ----------
     side : {'blue' (default), 'red'}
         'blue' or 'red' to indicate the arm of the spectrograph
+    overwrite : boolean
+        If True, overwrites existing flats; if False, skips processing for
+        all slit widths with existing flats.
     """
 
     iraf.unlearn('flatcombine')
@@ -270,7 +273,18 @@ def make_flats(side='blue',overwrite=False):
 
 
 def make_arcs_blue(slit=0.5, overwrite=False):
-    # create the master arc with FeAr lamps
+    """Creates the master FeAr arc with iraf.imcombine.
+
+    Stores arc as FeAr_{slit}.fits.
+
+    Parameters
+    ----------
+    slit : {'0.5','1.0', '1.5', '2.0'}
+        string indicating the slit width
+    overwrite : boolean
+        If True, overwrites existing arc; if False, skips processing.
+    """
+
     aperture = "{:3.1f}".format(slit)
 
     iraf.unlearn('imcombine')
@@ -287,7 +301,18 @@ def make_arcs_blue(slit=0.5, overwrite=False):
     iraf.imcombine(','.join(arcs), 'FeAr_{}'.format(aperture), reject="none")
 
 def make_arcs_red(slit=0.5, overwrite=False):
-    # create the master arc with HeNeAr lamps
+    """Creates the master HeNeAr arc with iraf.imcombine.
+
+    Stores arc as HeNeAr_{slit}.fits.
+
+    Parameters
+    ----------
+    slit : {'0.5','1.0', '1.5', '2.0'}
+        string indicating the slit width
+    overwrite : boolean
+        If True, overwrites existing arc; if False, skips processing.
+    """
+
     aperture = "{:3.1f}".format(slit)
 
     iraf.unlearn('imcombine')
@@ -305,8 +330,24 @@ def make_arcs_red(slit=0.5, overwrite=False):
 
 def preprocess_image(filename, side='blue', flatcor = 'yes', 
     remove_cosmics=True, trace=None):
-    """bias subtract, flat correct, 
-    add header info if needed, and remove cosmic rays"""
+    """Remove instrumental signatures from a CCD image.
+    
+    Performs bias subtraction and flat correction, 
+    adds header info if needed, and removes cosmic rays.
+
+    Parameters
+    ----------
+    filename : string
+        Name of CCD image to process
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    flatcor : {'yes' (default), 'no'}
+        Divide the image by the flat field?
+    remove_cosmics : boolean
+        Apply cosmic ray rejection?
+    trace : int
+        Row or column of the spectral trace, if different from default.
+    """
 
     assert(flatcor in ['yes','no'])
 
@@ -358,6 +399,52 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
 def store_standards(imgID_list, side='blue', trace=None, 
     arc=None, splot='no', redo='no', resize='yes', 
     crval=None, cdelt=None, extract=True, telluric_cal_id=None):
+    """Extract spectra for spectroscopic standard stars and determine 
+    corrections needed for fluxing.
+    
+    Wraps iraf.standard and iraf.sensfunc.  
+    
+    After extracting spectra for each standard star, the code will query you 
+    for the name of the standards and prompt you to edit the bandpasses.  
+    The calibrated data are stored in std-{side}.
+
+    Next, the software fits a sensitivity function to the calibrated intensity
+    bandpasses, prompting you to edit the fit as needed.  The fit sensitivity
+    is stored in sens-{side}.
+
+    See the README for step-by-step instructions for interacting with iraf.
+
+    Parameters
+    ----------
+    imgID_list : list of ints
+        List of file numbers for images of spectroscopic standards,
+        e.g., red0011.fits and red0015.fits -> [11,15]
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    trace : int
+        Row or column of the spectral trace, if different from default.
+    arc :
+
+    splot : {'yes', 'no' (default)}
+        Plot extracted spectra with iraf.splot?
+    redo : {'yes', 'no' (default)}
+        Redo the spectral extraction from scratch?  Passed to iraf.doslit.
+        **Warning**--discards previous wavelength solution!  
+        Use extract=False if you simply want to redefine calibration bandpasses
+        and refit the sensitivity function.
+    resize : {'yes' (default), 'no'}
+        Resize the extraction aperture?  Passed to iraf.doslit.    
+    crval :
+
+    cdelt :
+
+    extract : boolean (default True)
+        Extract spectra?  If False, use existing extractions.
+        Useful for redefining the calibration bandpasses and refitting
+        the sensitivity function.
+    telluric_cal_id : int or None (default)
+        If defined, use specified image id to perform telluric correction.
+    """
 
     # first extract all the standard spectra
     if extract:
