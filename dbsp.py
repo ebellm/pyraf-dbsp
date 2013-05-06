@@ -253,9 +253,11 @@ def make_flats(side='blue',overwrite=False):
                 iraf.unlearn('response')
                 iraf.response.function = "spline3"
                 iraf.response.order = 100
-                iraf.response.niterate = 0
+                iraf.response.high_rej = 3
+                iraf.response.low_rej = 3
+                iraf.response.niterate = 3
                 iraf.response('temp', 'temp', 
-                    'flat_%s_%s.fits' % (side, aperture), interactive="yes")
+                    'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 iraf.delete('temp.fits', verify="no")
 
                 # measure flat-field error from sigma images
