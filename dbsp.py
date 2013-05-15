@@ -51,6 +51,10 @@ iraf.ccdred(_doprint=0)
 iraf.kpnoslit(_doprint=0)
 iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
+iraf.twodspec(_doprint=0)
+iraf.longslit(_doprint=0)
+
+
 
 # defaults
 # (blue trace is usually around 250-260)
@@ -137,6 +141,12 @@ def bias_subtract(side='blue',trace=None):
 
     # update the headers
     iraf.asthedit('%s????.fits' % side, '/home/bsesar/opt/python/DBSP.hdr')
+    if side == 'blue':
+        iraf.hedit('blue*.fits', 'DISPAXIS', 2, update="yes", 
+            verify="no", add="yes")
+    else:
+        iraf.hedit('red*.fits', 'DISPAXIS', 1, update="yes", 
+            verify="no", add="yes")
 
     # bias subtraction using the overscan
     filenames = glob("%s????.fits" % side)
@@ -256,6 +266,10 @@ def make_flats(side='blue',overwrite=False):
                 iraf.response.high_rej = 3
                 iraf.response.low_rej = 3
                 iraf.response.niterate = 3
+                if side == 'blue':
+                    iraf.twodspec.longslit.dispaxis = 2
+                else:
+                    iraf.twodspec.longslit.dispaxis = 1
                 iraf.response('temp', 'temp', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 iraf.delete('temp.fits', verify="no")
@@ -661,13 +675,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
                 pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
                 verbose='no')
-        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='4025 4070', logfile='skyfit1.dat', pos='../skyline2.dat', verbose='no')
-        #iraf.fitprofs('%s%04d.2001.fits' % (side,imgID), reg='4340 4380', logfile='skyfit2.dat', pos='../skyline4.dat', verbose='no')
-        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5440 5480', logfile='skyfit3.dat', pos='../skyline3.dat', verbose='no')
-        #iraf.fitprofs( '%s%04d.2001.fits' % (side,imgID), reg='5560 5590', logfile='skyfit4.dat', pos='../skyline.dat', verbose='no')
 
         # dump useful data from skyfit?.dat (center width err_center err_width)
-        #for i in [1,2,3,4]:
             os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
             try:
                 dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
@@ -682,20 +691,6 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         offset_final = np.mean(offsets)
         error_at_mid = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/ \
             midpoint_loc[side]*299792.458 # uncertainty in km/s at 4750 A
-        
-        # correct CRVAL1 value and add uncertainty in wavelength zero-point
-        #lambda0 = np.array([4046.565, 4358.335, 5460.750, 5577.340])
-        #dat = np.genfromtxt('wavelength_offset1.dat', usecols=(0,2), names="center, error")
-        #offsets = np.zeros((dat.size,4))
-        #for i in np.arange(4):
-        #    dat = np.genfromtxt('wavelength_offset%d.dat' % int(i+1), usecols=(0,2), names="center, error")
-        #    offsets[:, i] = dat["center"] - lambda0[i] # subtract this from CRVAL1
-
-        #offset_final = np.zeros(offsets[:,0].size)
-        #error_at_4750 = np.zeros(offsets[:,0].size)
-        #for i in np.arange(offsets[:,0].size):
-        #    offset_final[i] = np.average(offsets[i])
-        #    error_at_4750[i] = np.std(offsets[i], ddof=1)/np.sqrt(4.)/4750*299792.458 # uncertainty in km/s at 4750 A
 
     # add wavelength shifts/ uncertainty in km/s to headers
     # (CRVAL1 doesn't seem to apply the shift correctly?)
