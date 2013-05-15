@@ -627,6 +627,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         iraf.telluric.ignoreaps = 'yes'
         iraf.telluric.xcorr = 'yes'
         iraf.telluric.tweakrms = 'yes'
+        iraf.telluric.sample='7584:7678,9252:9842'
+        iraf.telluric.interactive='no'
         iraf.telluric()
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
@@ -647,10 +649,10 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
 
         sky_lines = {'blue':
             {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
-            'regs':['4044 4054', '4340 4380', '5440 5480', '5560 5590']},
-            'red':
-            {'wavelength':[6300.304,6863.955,7340.885,7821.503,8430.174,8827.096],
-            'regs':['6270 6320', '6840 6880', '7330 7355', '7810 7835','8420 8450','8800 8835']}}
+            'regs':['4040 4054', '4350 4365', '5455 5469', '5572 5583']},
+            'red': 
+            {'wavelength':[6300.32,6923.21,7340.885,7821.51,8430.174,8885.83],
+            'regs':['6291 6315', '6917 6930', '7333 7348', '7813 7830','8422 8439','8875 8895']}}
         
         offsets = []
         for i in range(len(sky_lines[side]['wavelength'])):
