@@ -374,8 +374,10 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     iraf.ccdproc.zerocor = "no"
     iraf.ccdproc.flatcor = flatcor
     iraf.ccdproc.fixpix = "no"
-	iraf.hedit(filename, 'GAIN', det_pars[side]['gain'], update="yes", verify="no", show="no")
-	iraf.hedit(filename, 'RON', det_pars[side]['readnoise'], update="yes", verify="no", show="no")
+    iraf.hedit(filename, 'GAIN', det_pars[side]['gain'], 
+        update="yes", verify="no", show="no")
+    iraf.hedit(filename, 'RON', det_pars[side]['readnoise'], 
+        update="yes", verify="no", show="no")
     if side == 'blue':
         # update the header
         iraf.hedit(filename, 'DISPAXIS', 2, update="yes", verify="no", add="yes", show="no")
