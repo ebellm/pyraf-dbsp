@@ -48,13 +48,11 @@ NEW_RED_SIDE = is_new_red_camera()
 iraf.noao(_doprint=0)
 iraf.imred(_doprint=0)
 iraf.ccdred(_doprint=0)
+iraf.twodspec(_doprint=0)
+iraf.longslit(_doprint=0)
 iraf.kpnoslit(_doprint=0)
 iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
-iraf.twodspec(_doprint=0)
-iraf.longslit(_doprint=0)
-
-
 
 # defaults
 # (blue trace is usually around 250-260)
@@ -143,10 +141,10 @@ def bias_subtract(side='blue',trace=None):
     iraf.asthedit('%s????.fits' % side, '/home/bsesar/opt/python/DBSP.hdr')
     if side == 'blue':
         iraf.hedit('blue*.fits', 'DISPAXIS', 2, update="yes", 
-            verify="no", add="yes")
+            verify="no", add="yes", show="no")
     else:
         iraf.hedit('red*.fits', 'DISPAXIS', 1, update="yes", 
-            verify="no", add="yes")
+            verify="no", add="yes", show="no")
 
     # bias subtraction using the overscan
     filenames = glob("%s????.fits" % side)
@@ -263,13 +261,13 @@ def make_flats(side='blue',overwrite=False):
                 iraf.unlearn('response')
                 iraf.response.function = "spline3"
                 iraf.response.order = 100
-                iraf.response.high_rej = 3
-                iraf.response.low_rej = 3
                 iraf.response.niterate = 3
+                iraf.response.low_rej = 3
+                iraf.response.high_rej = 3
                 if side == 'blue':
-                    iraf.twodspec.longslit.dispaxis = 2
+                    iraf.twodspec.longslit.dispaxis=2
                 else:
-                    iraf.twodspec.longslit.dispaxis = 1
+                    iraf.twodspec.longslit.dispaxis=1
                 iraf.response('temp', 'temp', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 iraf.delete('temp.fits', verify="no")
@@ -374,14 +372,21 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     hdr = pyfits.getheader(filename)
     iraf.unlearn('ccdproc')
     iraf.ccdproc.zerocor = "no"
-    iraf.ccdproc.flatcor = "no"
+    iraf.ccdproc.flatcor = flatcor
     iraf.ccdproc.fixpix = "no"
+	iraf.hedit(filename, 'GAIN', det_pars[side]['gain'], update="yes", verify="no", show="no")
+	iraf.hedit(filename, 'RON', det_pars[side]['readnoise'], update="yes", verify="no", show="no")
     if side == 'blue':
+        # update the header
+        iraf.hedit(filename, 'DISPAXIS', 2, update="yes", verify="no", add="yes", show="no")
+        # trim the specified region
         iraf.ccdproc.biassec = hdr['BSEC1']
         iraf.ccdproc.trimsec = "[%d:%d,*]" % (trace-100, trace+100)
         iraf.ccdproc.function = "spline3"
         iraf.ccdproc.order = 3
     else:
+        # update the header
+        iraf.hedit(filename, 'DISPAXIS', 1, update="yes", verify="no", add="yes", show='no')
         # trim the specified region
         iraf.ccdproc.biassec = det_pars['red']['biassec']
         tsec_x = hdr['TSEC1'].split(',')[0]
@@ -483,6 +488,8 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
     iraf.standard.output = 'std-{}'.format(side)
+    iraf.standard.bandwidth = 50
+    iraf.standard.bandsep = 100
     # try these one at a time
     for imgID in imgID_list:
         # use the extracted spectrum!
@@ -491,6 +498,10 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('sensfunc')
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
+    if side == 'blue':
+        iraf.sensfunc.order = 3
+    else:
+        iraf.sensfunc.order = 6
     # varun says to use ignoreaps, but it's causing me problems downstream
     #iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
@@ -629,6 +640,16 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     #iraf.epar('doslit')
     iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
 
+    # extract the trace from the flat-field image
+    hdr = pyfits.getheader(rootname + '.fits')
+    iraf.apall('raw_flat_%s_%s.fits' % (side, hdr['APERTURE']), interactive='no', extras='no', edit="no", nsum=10, recenter="no", trace="no", background="none", output='trace_flat', find="no", reference=rootname)
+    # normalize the response with mean
+    m = np.float(iraf.imstat('trace_flat.fits', fields='mean', Stdout=1, format="no")[0])
+    iraf.imarith('trace_flat.fits', '/', m, 'trace_flat.fits')
+    # transform from pixel to wavelength coordinates
+    iraf.hedit('trace_flat.fits', 'REFSPEC1', '%s%s.ms' % (rootname, os.path.splitext(arc)[0]), add="yes", verify="no", show="no")
+    iraf.dispcor('trace_flat.fits', 'd_trace_flat.fits', table=rootname + '.ms.fits')
+
     # correct tellurics, if requested
     if telluric_cal_id is not None and side == 'red':
         tell_rootname = '%s%04d' % (side,telluric_cal_id)
@@ -637,12 +658,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         iraf.unlearn('telluric')
         iraf.telluric.input = rootname + '.ms.fits'
         iraf.telluric.output = ""
+        iraf.telluric.sample = "7584:7678,9252:9842"
+        iraf.telluric.interactive = "no"
         iraf.telluric.cal = 'norm_%s.fits' % tell_rootname
         iraf.telluric.ignoreaps = 'yes'
         iraf.telluric.xcorr = 'yes'
         iraf.telluric.tweakrms = 'yes'
-        iraf.telluric.sample='7584:7678,9252:9842'
-        iraf.telluric.interactive='no'
         iraf.telluric()
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
@@ -664,13 +685,13 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
         sky_lines = {'blue':
             {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
             'regs':['4040 4054', '4350 4365', '5455 5469', '5572 5583']},
-            'red': 
+            'red':
             {'wavelength':[6923.21,7340.885,7821.51,8430.174,8885.83],
             'regs':['6917 6930', '7333 7348', '7813 7830','8422 8439','8875 8895']}}
         
         offsets = []
         for i in range(len(sky_lines[side]['wavelength'])):
-            iraf.fitprofs( rootname + '.2001.fits',
+            iraf.fitprofs(rootname + '.2001.fits',
                 reg=sky_lines[side]['regs'][i], 
                 logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
                 pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
@@ -717,6 +738,11 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     if hdr['EXPTIME'] > 120:
         iraf.specshift(rootname + '.0001', '%.3f' % (-offset_final))
         iraf.specshift(rootname + '.3001', '%.3f' % (-offset_final))
+
+    # normalize the spectrum and the uncertainty using the reponse function
+    iraf.imarith(rootname + '.0001', '/', 'd_trace_flat.fits', rootname + '.0001')
+    iraf.imarith(rootname + '.3001', '/', 'd_trace_flat.fits', rootname + '.3001')
+    iraf.delete('*trace_flat.fits', verify="no")
 
     # flux, if requested
     if flux:
