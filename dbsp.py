@@ -270,7 +270,7 @@ def make_flats(side='blue',overwrite=False):
                     iraf.twodspec.longslit.dispaxis=1
                 iraf.response('temp', 'temp', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
-                iraf.delete('temp.fits', verify="no")
+                os.rename('temp.fits', 'raw_flat_%s_%s.fits' % (side, aperture))
 
                 # measure flat-field error from sigma images
                 iraf.unlearn('imcombine')
