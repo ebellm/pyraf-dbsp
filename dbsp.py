@@ -446,8 +446,8 @@ def store_standards(imgID_list, side='blue', trace=None,
         'blue' or 'red' to indicate the arm of the spectrograph
     trace : int
         Row or column of the spectral trace, if different from default.
-    arc :
-
+    arc : string
+        Arc image to use if different from the default, e.g. 'HeNeAr_0.5.fits'
     splot : {'yes', 'no' (default)}
         Plot extracted spectra with iraf.splot?
     redo : {'yes', 'no' (default)}
@@ -457,10 +457,11 @@ def store_standards(imgID_list, side='blue', trace=None,
         and refit the sensitivity function.
     resize : {'yes' (default), 'no'}
         Resize the extraction aperture?  Passed to iraf.doslit.    
-    crval :
-
-    cdelt :
-
+    crval : int or None (default)
+        Spectrum reference dispersion coordinate, if different from default
+        [Angstroms of central pixel]
+    cdelt : int or None (default)
+        Spectral dispersion, if different from default [Angstroms per pixel]
     extract : boolean (default True)
         Extract spectra?  If False, use existing extractions.
         Useful for redefining the calibration bandpasses and refitting
@@ -509,9 +510,16 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.sensfunc()
 
 def estimateFWHM(imgID, side='blue'):
+    """Use IRAF's imexam to measure the FWHM of the trace.
+    
+    Parameters
+    ----------
+    imgID : int
+        File number of image to process, e.g., red0011.fits -> 11
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
     """
-    Use IRAF's imexam to measure the FWHM of the trace.
-    """
+
     iraf.unlearn('imexam')
     iraf.rimexam.fittype = "gaussian"
     iraf.delete('trace.xy', verify="no")
@@ -550,9 +558,53 @@ def estimateFWHM(imgID, side='blue'):
         f.writeto('%s%04d_flux.spec.fits' % (side, imgID), clobber=True)
         f.close()
 
-def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no', 
+def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', 
         resize='yes', flux=False, telluric_cal_id=None, reextract=False, 
-        crval=None, cdelt=None):
+        redo='no', crval=None, cdelt=None):
+    """Extract spectra for science objects and apply flux and telluric 
+    corrections if requested.
+    
+    Wraps preprocess_image, iraf.doslit, iraf.calibrate, iraf.dispcor, 
+    iraf.telluric, and some others.  
+
+    Uses sky lines to correct the wavelength solution and estimate its 
+    uncertainty.
+
+    Generates text and fits spectra of the form {side}####.spec.{fits/txt}
+    and uncertainties of the form {side}####.err.{fits/txt}.  Fluxed
+    spectra and errors are stored as {side}####_flux.spec.{fits/txt}
+    and {side}####_flux.err.{fits/txt}.
+
+    Parameters
+    ----------
+    imgID : int
+        File number of image to process, e.g., red0011.fits -> 11
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    trace : int
+        Row or column of the spectral trace, if different from default.
+    arc : string
+        Arc image to use if different from the default, e.g. 'HeNeAr_0.5.fits'
+    splot : {'yes', 'no' (default)}
+        Plot extracted spectra with iraf.splot?
+    resize : {'yes' (default), 'no'}
+        Resize the extraction aperture?  Passed to iraf.doslit.    
+    telluric_cal_id : int or None (default)
+        If defined, use specified image id to perform telluric correction.
+    reextract : boolean (default False)
+        Re-extract spectra?  If False, use existing aperture definitions
+        if they exist.  If True, 
+    redo : {'yes', 'no' (default)}
+        Redo the spectral extraction from scratch?  Passed to iraf.doslit.
+        **Warning**--discards previous wavelength solution!  This is probably 
+        not what you want!
+        Use reextract=True if you simply want to redefine the apertures.
+    crval : int or None (default)
+        Spectrum reference dispersion coordinate, if different from default
+        [Angstroms of central pixel]
+    cdelt : int or None (default)
+        Spectral dispersion, if different from default [Angstroms per pixel]
+    """
 
     assert (side in ['blue','red'])
     assert (splot in ['yes','no'])
@@ -759,6 +811,18 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
 
     # output to text files
     def text_output(rootname,hdr_arc,flux=False):
+        """Generate ASCII text spectra of the form rootname{_flux}.spec.txt and
+        rootname{_flux}.err.txt.
+
+        Parameters
+        ----------
+        rootname : string
+            Base name of the input image
+        hdr_arc : dict
+            PyFITS-generated dictionary of the arc header
+        flux : boolean (default False)
+            Is the spectrum flux-corrected?
+        """
         if flux:
             suffix = '_flux'
         else:
@@ -818,9 +882,25 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', redo='no',
     estimateFWHM(imgID, side=side)
 
 def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
-    """imgID_lists are lists of numbers of extracted spectra:
-    eg, [41] for red0041_flux.spec.fits"""
+    """Downsample extracted blue and red spectra onto a common wavelength grid 
+    and coadd, weighting by uncertainties.
 
+    Takes output of extract1D and wraps iraf.dispcor and coadd_spectra.
+    
+    Parameters
+    ----------
+    imgID_list_blue : list of ints
+        List of file numbers for blue spectra to combine
+        e.g., blue0011.spec.fits and blue0015.spec.fits -> [11,15]
+    imgID_list_red : list of ints
+        List of file numbers for red spectra to combine
+        e.g., red0011.spec.fits and red0015.spec.fits -> [11,15]
+    output : string or None (default)
+        File name of combined spectra.  If None, defaults to the OBJECT name
+        of the first blue spectrum and the blue and red imgIDs.
+    splot : {'yes' (default), 'no'}
+        Plot the combined spectrum?
+    """
             
     blue_files = ['blue{:04d}_flux.spec.fits'.format(imgID) for imgID in imgID_list_blue]
     red_files = ['red{:04d}_flux.spec.fits'.format(imgID) for imgID in imgID_list_red]
@@ -834,6 +914,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         # create a unique name based on the input
 
         def ids_to_string(idlist):
+            """Create hyphen-delimited string from list of ints"""
             if len(idlist) == 1:
                 return "{:d}".format(idlist[0])
             else:
@@ -856,6 +937,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
     # find wavelength ranges
     def wavelength_range(fits_list):
+        """Given an input list of fits spectra from extract1D, 
+        return the absolute minimum and maximum wavelength ranges"""
         mins = []
         maxes = []
         for fname in fits_list:
@@ -878,6 +961,23 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
     # re-disperse to common wavelength solution
     def redisperse_list(files,dw,w1,w2,key='spec'):
+        """Re-disperse a list of spectra.
+
+        Wraps iraf.dispcor.
+
+        Parameters
+        ----------
+        files : list of strings
+            Files to disperse
+        dw : int
+            Spectral dispersion [Angstroms per pixel]
+        w1 : int
+            Minimum wavelength [Angstrom]
+        w2 : int
+            Maximum wavelength [Angstrom]
+        key : {'spec' (default) or 'err'}
+            Whether the files are spectra or uncertainties.
+        """
         input_list = ','.join(files)
         disp_files = [f.replace(key,key+'-disp') for f in files]
         output_disp_list = ','.join(disp_files)
@@ -915,7 +1015,6 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output,
         one_side=False)
 
-
     # clean up
     iraf.delete('*-disp.fits',verify='no')
     iraf.delete('*-disp.txt',verify='no')
@@ -926,6 +1025,19 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         iraf.splot(output+'.spec')
 
 def match_spectra_leastsq(y, yref, yerr, yreferr):
+    """Determine the best-fit ratio between two spectra.
+
+    Parameters
+    ----------
+    y : array
+        Spectrum
+    yref : array
+        Reference spectrum
+    yerr : array
+        Uncertainty in spectrum
+    yreferr : array
+        Uncertainty in reference spectrum
+    """
     errfunc = lambda p, y, yref, yerr, yreferr: \
         (yref - p[0]*y)/np.sqrt(yerr**2. + yreferr**2.)
     p0 = [1.]
@@ -941,11 +1053,32 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
     else:
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
-def coadd_spectra(spec_list_fits, out_name, 
-    use_ratios=False, ratio_range=[4200,4300], scale_spectra=True,
+def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
+    use_ratios=False, ratio_range=[4200,4300], 
     one_side=True):
     """Scales input 1D spectra onto the same scale multiplicatively
-       and then combines spectra using a weighted mean.
+    and then combines spectra using an uncertainty-weighted mean.
+       
+    Parameters
+    ----------
+    spec_list_fits : list of strings
+        List of spectra extracted by extract1D from a single side
+    out_name : string
+        Name of output file
+    scale_spectra : boolean (default True)
+        If True, fit and apply a multiplicative scale factor to match 
+        the spectra before coadding
+    use_ratios : boolean (default False)
+        If True, use the median ratio of the spectra in the ratio_range
+        to determine the scaling factor; otherwise match with least squares
+        in overlap region
+    ratio_range : list of ints 
+        Two-element array of wavelengths (in Angstroms) where the ratio
+        of the spectra are computed if scale_spectra and use_ratios are
+        both True.
+    one_side : boolean (default True)
+        Are the data from a single side of the spectrograph?  If so,
+        compute statistics for the coadd.
     """
 
     spec_list_txt = [f.replace('fits','txt') for f in spec_list_fits]
@@ -1088,6 +1221,18 @@ def coadd_spectra(spec_list_fits, out_name,
     f.close()
 
 def normalize_to_continuum(imgID, side='blue'):
+    """Normalize a spectrum to the continuum.
+
+    Wraps iraf.continuum.
+
+    Parameters
+    ----------
+    imgID : int
+        File number of image to process, e.g., red0011.fits -> 11
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    """
+
     rootname = '%s%04d' % (side,imgID)
     hdr = pyfits.getheader('%s.spec.fits' % rootname)
     iraf.unlearn('continuum')
@@ -1104,6 +1249,19 @@ def normalize_to_continuum(imgID, side='blue'):
     #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
 def stack_plot(spec_list, offset = False, alpha=1.):
+    """Plot several spectra on top of each other with matplotlib.
+
+    Parameters
+    ----------
+    spec_list : list of strings
+        List of text spectra extracted by extract1D 
+        (e.g., ['red0001_flux.spec.txt'])
+    offset : boolean (default False)
+        Plot with a vertical offset between spectra?
+    alpha : float, default 1.0 
+        Opacity of the plot lines
+    """
+
     import matplotlib.pyplot as plt
 
     offset_val = 0.
@@ -1120,17 +1278,26 @@ def stack_plot(spec_list, offset = False, alpha=1.):
 def find_gain_readnoise(side='blue', aperture='1.0'):
     """Utility for measuring the gain and readnoise from raw images.
     
-    Adaptation of iraf's findgain utility."""
+    Adaptation of iraf's findgain utility.
+
+    Parameters
+    ----------
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    aperture : {'0.5','1.0', '1.5', '2.0'}
+        string indicating the slit width
+    """
     
     # high statistics section of the flat
     if side == 'blue':
-        section="[80:350,600:800]"
+        section="[81:350,600:800]"
     # TODO: confirm these sections
     elif side == 'red':
         if NEW_RED_SIDE:
             section="[1300:3000,50:400]"    
         else:
             section="[215:1000,50:265]"    
+
     flats = find_flats(aperture, side=side)
     biases = iraf.hselect('{}????.fits'.format(side), '$I', 
         'IMGTYPE == "bias" & EXPTIME == 0', Stdout=1)
@@ -1148,6 +1315,22 @@ def find_gain_readnoise(side='blue', aperture='1.0'):
 
 
 def compute_gain_readnoise(flat1, flat2, zero1, zero2, section="[*,*]"):
+    """DEPRECATED--use find_gain_readnoise instead.
+
+    Utility for measuring the gain and readnoise from raw images.
+    
+    Adaptation of iraf's findgain utility.
+
+    Parameters
+    ----------
+    flat1, flat2 : string
+        Filenames of flat images
+    zero1, zero2 : string
+        Filenames of bias images
+    section : string 
+        Section of the files to compute stats on (e.g., "[1300:3000,50:400]")
+    """
+
     iraf.noao(_doprint=0)
     iraf.obsutil(_doprint=0)
     iraf.imarith(flat1, '-', flat2, 'flatdif')
@@ -1178,8 +1361,26 @@ def compute_gain_readnoise(flat1, flat2, zero1, zero2, section="[*,*]"):
     return gain, readnoise
 
 def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
-    """imgID_lists are lists of numbers of extracted spectra:
-    eg, [41] for red0041_flux.spec.fits"""
+    """DEPRECATED--use combine_sides instead. 
+    Downsample extracted blue and red spectra onto a common wavelength grid 
+    and coadd using iraf.scombine.
+
+    Takes output of extract1D and wraps iraf.dispcor and iraf.scombine.
+    
+    Parameters
+    ----------
+    imgID_list_blue : list of ints
+        List of file numbers for blue spectra to combine
+        e.g., blue0011.spec.fits and blue0015.spec.fits -> [11,15]
+    imgID_list_red : list of ints
+        List of file numbers for red spectra to combine
+        e.g., red0011.spec.fits and red0015.spec.fits -> [11,15]
+    output : string or None (default)
+        File name of combined spectra.  If None, defaults to the OBJECT name
+        of the first blue spectrum and the blue and red imgIDs.
+    splot : {'yes' (default), 'no'}
+        Plot the combined spectrum?
+    """
 
             
     blue_files = ['blue{:04d}_flux.spec.fits'.format(imgID) for imgID in imgID_list_blue]
