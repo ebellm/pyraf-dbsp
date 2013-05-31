@@ -38,7 +38,7 @@ def is_new_red_camera():
         else:
             continue
 
-    #raise ValueError('Could not locate red side files')
+    # raise ValueError('Could not locate red side files')
     print 'Could not locate red side files--defaulting to new camera'
     return True
     
@@ -56,22 +56,22 @@ iraf.onedspec(_doprint=0)
 
 # defaults
 # (blue trace is usually around 250-260)
-det_pars = {'blue':{'gain':0.8,'readnoise':2.7,'trace':253,
-                    'crval':4345, 'cdelt':-1.072, 'arc':'FeAr_0.5.fits',
-                    'fwhm_arc':2.8}}
+det_pars = {'blue': {'gain': 0.8, 'readnoise': 2.7, 'trace': 253,
+                    'crval': 4345, 'cdelt': -1.072, 'arc': 'FeAr_0.5.fits',
+                    'fwhm_arc': 2.8}}
 
 if NEW_RED_SIDE:
-    det_pars['red'] = {'gain':2.8,'readnoise':8.5,'trace':166,
-                       'crval':7502, 'cdelt':1.530, 'arc':'HeNeAr_0.5.fits',
-                       'biassec':'[4128:4141,1:440]', 'fwhm_arc':2.4}
+    det_pars['red'] = {'gain': 2.8, 'readnoise': 8.5, 'trace': 166,
+                       'crval': 7502, 'cdelt': 1.530, 'arc': 'HeNeAr_0.5.fits',
+                       'biassec': '[4128:4141,1:440]', 'fwhm_arc': 2.4}
 else:
     # old CCD
-    det_pars['red'] = {'gain':2.05,'readnoise':7.8,'trace':130,
-                       'crval':6600, 'cdelt':2.46, 'arc':'HeNeAr_0.5.fits',
-                       'biassec':'[1080:1124,1:300]', 'fwhm_arc':1.6}
+    det_pars['red'] = {'gain': 2.05, 'readnoise': 7.8, 'trace': 130,
+                       'crval': 6600, 'cdelt': 2.46, 'arc': 'HeNeAr_0.5.fits',
+                       'biassec': '[1080:1124,1:300]', 'fwhm_arc': 1.6}
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
-def mark_bad(side,numbers):
+def mark_bad(side, numbers):
     """Utility for excluding specific files from further analysis.
 
     Saturated or mis-configured exposures are suffixed .bad so file searches
@@ -86,18 +86,18 @@ def mark_bad(side,numbers):
 
     """
 
-    assert (side in ['blue','red'])
+    assert (side in ['blue', 'red'])
     try:
         for num in numbers:
-            name = '{:s}{:04d}.fits'.format(side,num)
+            name = '{:s}{:04d}.fits'.format(side, num)
             os.rename(name, name+'.bad')
     except TypeError:
         # single number
         num = numbers
-        name = '{:s}{:04d}.fits'.format(side,num)
+        name = '{:s}{:04d}.fits'.format(side, num)
         os.rename(name, name+'.bad')
 
-def create_arc_dome(side='blue',trace=None,arcslit=0.5,overwrite=True):
+def create_arc_dome(side='blue', trace=None, arcslit=0.5, overwrite=True):
     """Convenience function which subtracts bias, creates dome flats, and
     creates arc frames.
     
@@ -114,19 +114,19 @@ def create_arc_dome(side='blue',trace=None,arcslit=0.5,overwrite=True):
     if trace is None:
         trace = det_pars[side]['trace']
     
-    bias_subtract(side=side,trace=trace)
+    bias_subtract(side=side, trace=trace)
 
     if side == 'blue':
         fix_bad_column_blue()
 
-    make_flats(side=side,overwrite=overwrite)
+    make_flats(side=side, overwrite=overwrite)
 
     if side == 'blue':
-        make_arcs_blue(slit=arcslit,overwrite=overwrite)
+        make_arcs_blue(slit=arcslit, overwrite=overwrite)
     else:
-        make_arcs_red(slit=arcslit,overwrite=overwrite)
+        make_arcs_red(slit=arcslit, overwrite=overwrite)
 
-def bias_subtract(side='blue',trace=None):
+def bias_subtract(side='blue', trace=None):
     """Use iraf.ccdproc to subtract bias from all frames.
 
     Parameters
@@ -247,7 +247,7 @@ def make_flats(side='blue',overwrite=False):
     iraf.flatcombine.subsets = "no"
     iraf.flatcombine.rdnoise = "RON"
     iraf.flatcombine.gain = "GAIN"
-    for aperture in ['0.5','1.0', '1.5', '2.0']:
+    for aperture in ['0.5', '1.0', '1.5', '2.0']:
         flats = find_flats(aperture, side=side)
         if len(flats) > 0:
             if overwrite:
@@ -265,9 +265,9 @@ def make_flats(side='blue',overwrite=False):
                 iraf.response.low_rej = 3
                 iraf.response.high_rej = 3
                 if side == 'blue':
-                    iraf.twodspec.longslit.dispaxis=2
+                    iraf.twodspec.longslit.dispaxis = 2
                 else:
-                    iraf.twodspec.longslit.dispaxis=1
+                    iraf.twodspec.longslit.dispaxis = 1
                 iraf.response('temp', 'temp', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 os.rename('temp.fits', 'raw_flat_%s_%s.fits' % (side, aperture))
@@ -363,7 +363,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
         Row or column of the spectral trace, if different from default.
     """
 
-    assert(flatcor in ['yes','no'])
+    assert(flatcor in ['yes', 'no'])
 
     if trace is None:
         trace = det_pars[side]['trace']
@@ -399,7 +399,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     iraf.ccdproc.darkcor = "no"
     iraf.ccdproc.niterate = 3
     iraf.ccdproc(filename,
-        flat="flat_%s_%s" % (side,hdr['APERTURE']))
+        flat="flat_%s_%s" % (side, hdr['APERTURE']))
 
     if (side == 'blue') and ('FIXPIX' not in hdr):
         iraf.fixpix('blue????.fits', "bluebpm")
@@ -485,8 +485,8 @@ def store_standards(imgID_list, side='blue', trace=None,
                 redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt,
                 telluric_cal_id = telluric_cal_id)
 
-    iraf.delete('std-{}'.format(side),verify='no')
-    iraf.delete('sens-{}'.format(side),verify='no')
+    iraf.delete('std-{}'.format(side), verify='no')
+    iraf.delete('sens-{}'.format(side), verify='no')
 
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
@@ -496,7 +496,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     # try these one at a time
     for imgID in imgID_list:
         # use the extracted spectrum!
-        iraf.standard('%s%04d.spec.fits' % (side,imgID))
+        iraf.standard('%s%04d.spec.fits' % (side, imgID))
 
     iraf.unlearn('sensfunc')
     iraf.sensfunc.standards = 'std-{}'.format(side)
@@ -506,7 +506,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     else:
         iraf.sensfunc.order = 6
     # varun says to use ignoreaps, but it's causing me problems downstream
-    #iraf.sensfunc.ignoreaps = 'yes'
+    # iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
 
 def estimateFWHM(imgID, side='blue'):
@@ -534,9 +534,9 @@ def estimateFWHM(imgID, side='blue'):
     f.close()
     # run imexam
     if side == 'blue':
-        defkey='j'
+        defkey = 'j'
     else:
-        defkey='k'
+        defkey = 'k'
     iraf.imexam('%s%04d' % (side, imgID), '1', logfile='fwhm.log', keeplog="yes", defkey=defkey, imagecur='trace.xy', use_display="no", autoredraw="no")
     # load values
     f = open('fwhm.log', 'r')
@@ -606,12 +606,12 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         Spectral dispersion, if different from default [Angstroms per pixel]
     """
 
-    assert (side in ['blue','red'])
-    assert (splot in ['yes','no'])
-    assert (redo in ['yes','no'])
-    assert (resize in ['yes','no'])
+    assert (side in ['blue', 'red'])
+    assert (splot in ['yes', 'no'])
+    assert (redo in ['yes', 'no'])
+    assert (resize in ['yes', 'no'])
 
-    rootname = '%s%04d' % (side,imgID)
+    rootname = '%s%04d' % (side, imgID)
 
     if trace is None:
         trace = det_pars[side]['trace']
@@ -634,7 +634,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # preprocess the science image
     preprocess_image(rootname+'.fits', side=side, trace=trace)
 
-    #preprocess the arc image
+    # preprocess the arc image
     preprocess_image(arc, side=side, trace=trace, flatcor='no', 
         remove_cosmics=False)
 
@@ -667,8 +667,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.doslit.b_niterate = 1
     iraf.doslit.select = "average"
     anullus_start = fwhm*2
-    xL = np.floor(np.linspace(-80,-1*anullus_start,10))
-    xR = np.floor(np.linspace(anullus_start,80,10))
+    xL = np.floor(np.linspace(-80, -1*anullus_start, 10))
+    xR = np.floor(np.linspace(anullus_start, 80, 10))
     background_range = ''
     for i in np.arange(xL.size-1):
         background_range += '%d:%d,' % (np.int(xL[i]), np.int(xL[i+1]-1))
@@ -690,8 +690,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.doslit.linearize = "yes"
 
     # extract 1D spectrum
-    #print arc, iraf.doslit.crval, iraf.doslit.cdelt
-    #iraf.epar('doslit')
+    # print arc, iraf.doslit.crval, iraf.doslit.cdelt
+    # iraf.epar('doslit')
     iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # extract the trace from the flat-field image
@@ -706,9 +706,9 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
 
     # correct tellurics, if requested
     if telluric_cal_id is not None and side == 'red':
-        tell_rootname = '%s%04d' % (side,telluric_cal_id)
+        tell_rootname = '%s%04d' % (side, telluric_cal_id)
         if not os.path.exists('norm_' + tell_rootname + '.fits'):
-            normalize_to_continuum(telluric_cal_id,side=side)
+            normalize_to_continuum(telluric_cal_id, side=side)
         iraf.unlearn('telluric')
         iraf.telluric.input = rootname + '.ms.fits'
         iraf.telluric.output = ""
@@ -740,31 +740,31 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
             {'wavelength':[4046.565, 4358.335, 5460.750, 5577.340],
             'regs':['4040 4054', '4350 4365', '5455 5469', '5572 5583']},
             'red':
-            {'wavelength':[6923.21,7340.885,7821.51,8430.174,8885.83],
-            'regs':['6917 6930', '7333 7348', '7813 7830','8422 8439','8875 8895']}}
+            {'wavelength':[6923.21, 7340.885, 7821.51, 8430.174, 8885.83],
+            'regs':['6917 6930', '7333 7348', '7813 7830', '8422 8439', '8875 8895']}}
         
         offsets = []
         for i in range(len(sky_lines[side]['wavelength'])):
             iraf.fitprofs(rootname + '.2001.fits',
                 reg=sky_lines[side]['regs'][i], 
-                logfile='skyfit_{:s}_{:1d}.dat'.format(side,i), 
-                pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side,i), 
+                logfile='skyfit_{:s}_{:1d}.dat'.format(side, i), 
+                pos=BASE_DIR + '/cal/skyline_{:s}_{:1d}.dat'.format(side, i), 
                 verbose='no')
 
         # dump useful data from skyfit?.dat (center width err_center err_width)
-            os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i))
+            os.system('fgrep -v "#" skyfit_{side:s}_{num:1d}.dat |perl -pe "s/0\.\n/0\./g;s/^ +//;s/\(/ /g;s/\)/ /g;s/ +/ /g;" |cut -d" " -f1,6,8,13 > wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side, num=i))
             try:
-                dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side,num=i) , usecols=(0,2), names="center, error")
+                dat = np.genfromtxt('wavelength_offset_{side:s}_{num:1d}.dat'.format(side=side, num=i), usecols=(0, 2), names="center, error")
             except:
                 # keep going if there's a bad profile fit
-                print "Warning: bad fit for wavelength_offset_{side:s}_{num:1d}.dat".format(side=side,num=i)
+                print "Warning: bad fit for wavelength_offset_{side:s}_{num:1d}.dat".format(side=side, num=i)
                 continue
             assert (dat['center'].size == 1)
             offsets.append(dat['center'] - sky_lines[side]['wavelength'][i])
         print offsets
 
         offset_final = np.mean(offsets)
-        error_at_mid = np.std(offsets, ddof=1)/np.sqrt(len(offsets))/ \
+        error_at_mid = np.std(offsets, ddof=1)/np.sqrt(len(offsets)) / \
             midpoint_loc[side]*299792.458 # uncertainty in km/s at 4750 A
 
     # add wavelength shifts/ uncertainty in km/s to headers
@@ -805,7 +805,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
         iraf.calibrate.output = rootname+'_flux.0001,'+rootname+'_flux.3001'
         # I'm not sure yet why this gets moved to .0001...
-        iraf.calibrate.sensitivity = sensitivity='sens-{}.0001'.format(side)
+        iraf.calibrate.sensitivity = sensitivity = 'sens-{}.0001'.format(side)
         iraf.calibrate.ignoreaps = 'yes'
         iraf.calibrate()
 
@@ -844,9 +844,9 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
                 rootname + '%s.err.txt' % (suffix), header="no")
 
     hdr_arc = pyfits.getheader('%s.ms.fits' % os.path.splitext(arc)[0])
-    text_output(rootname,hdr_arc,flux=False)
+    text_output(rootname, hdr_arc, flux=False)
     if flux:
-        text_output(rootname,hdr_arc,flux=True)
+        text_output(rootname, hdr_arc, flux=True)
 
     # calculate SNR
     iraf.delete(rootname + '.snr.fits', verify='no')
@@ -867,14 +867,14 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # statistics
     hdr = pyfits.getheader(rootname + '.spec.fits')
     if hdr['EXPTIME'] > 120:
-        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %.0f A." % (offset_final, error_at_mid,midpoint_loc[side])
+        print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %.0f A." % (offset_final, error_at_mid, midpoint_loc[side])
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     wave2 = np.int(np.floor((snr_loc[side]+10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
     try:
         s = iraf.imstat(rootname + '.snr.fits[%d:%d]' % (wave1, wave2), 
                 fields='mean', nclip=20, Stdout=1, format="no")
-        print "SNR = %.1f at %d A" % (np.float(s[0]),snr_loc[side])
+        print "SNR = %.1f at %d A" % (np.float(s[0]), snr_loc[side])
     except iraf.IrafError:
         print "Warning: could not imstat SNR"
 
@@ -910,7 +910,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
     if output is None:
         hdr = pyfits.getheader(blue_files[0])
-        obj = hdr['OBJECT'].replace(' ','_')
+        obj = hdr['OBJECT'].replace(' ', '_')
         # create a unique name based on the input
 
         def ids_to_string(idlist):
@@ -925,15 +925,15 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
             ids_to_string(imgID_list_red) 
 
     # clobber the old output files if they exist
-    iraf.delete(output+'.*.fits',verify='no')
-    iraf.delete(output+'.*.txt',verify='no')
+    iraf.delete(output+'.*.fits', verify='no')
+    iraf.delete(output+'.*.txt', verify='no')
     
     # determine dispersion: downsample to lower-resolution spectrum
     hdr = pyfits.getheader(blue_files[0])
     dw_blue = hdr['CDELT1']
     hdr = pyfits.getheader(red_files[0])
     dw_red = hdr['CDELT1']
-    dw = np.max([dw_blue,dw_red])
+    dw = np.max([dw_blue, dw_red])
 
     # find wavelength ranges
     def wavelength_range(fits_list):
@@ -942,11 +942,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         mins = []
         maxes = []
         for fname in fits_list:
-            spec = np.genfromtxt(fname.replace('fits','txt'), names='wave, flux', 
+            spec = np.genfromtxt(fname.replace('fits', 'txt'), names='wave, flux', 
                     dtype='f4, f4')
             mins.append(spec['wave'].min())
             maxes.append(spec['wave'].max())
-        return [np.array(mins).min(),np.array(maxes).max()]
+        return [np.array(mins).min(), np.array(maxes).max()]
 
     blue_range = wavelength_range(blue_files)
     red_range = wavelength_range(red_files)
@@ -979,7 +979,7 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
             Whether the files are spectra or uncertainties.
         """
         input_list = ','.join(files)
-        disp_files = [f.replace(key,key+'-disp') for f in files]
+        disp_files = [f.replace(key, key+'-disp') for f in files]
         output_disp_list = ','.join(disp_files)
         iraf.unlearn('dispcor')
         iraf.dispcor.input = input_list
@@ -992,34 +992,34 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         iraf.dispcor()
         # write text files
         for output in disp_files:
-            iraf.wspectext(output, output.replace('fits','txt'), header="no")
+            iraf.wspectext(output, output.replace('fits', 'txt'), header="no")
 
         return disp_files
 
     # delete any lingering files
-    iraf.delete('*-disp.fits',verify='no')
-    iraf.delete('*-disp.txt',verify='no')
+    iraf.delete('*-disp.fits', verify='no')
+    iraf.delete('*-disp.txt', verify='no')
 
-    blue_files_redisp = redisperse_list(blue_files,dw,w1,w2)
-    red_files_redisp = redisperse_list(red_files,dw,w1,w2)
-    blue_err_files_redisp = redisperse_list(blue_err_files,dw,w1,w2,key='err')
-    red_err_files_redisp = redisperse_list(red_err_files,dw,w1,w2,key='err')
+    blue_files_redisp = redisperse_list(blue_files, dw, w1, w2)
+    red_files_redisp = redisperse_list(red_files, dw, w1, w2)
+    blue_err_files_redisp = redisperse_list(blue_err_files, dw, w1, w2, key='err')
+    red_err_files_redisp = redisperse_list(red_err_files, dw, w1, w2, key='err')
 
     # combine individual sides
-    coadd_spectra(blue_files_redisp,'tmp-blue')
-    coadd_spectra(red_files_redisp,'tmp-red')
+    coadd_spectra(blue_files_redisp, 'tmp-blue')
+    coadd_spectra(red_files_redisp, 'tmp-red')
 
     # find optimum weighting between sides
 
     # combine sides, weighted by uncertainties
-    coadd_spectra(['tmp-blue.spec.fits','tmp-red.spec.fits'],output,
+    coadd_spectra(['tmp-blue.spec.fits', 'tmp-red.spec.fits'], output,
         one_side=False)
 
     # clean up
-    iraf.delete('*-disp.fits',verify='no')
-    iraf.delete('*-disp.txt',verify='no')
-    iraf.delete('tmp-*.fits',verify='no')
-    iraf.delete('tmp-*.txt',verify='no')
+    iraf.delete('*-disp.fits', verify='no')
+    iraf.delete('*-disp.txt', verify='no')
+    iraf.delete('tmp-*.fits', verify='no')
+    iraf.delete('tmp-*.txt', verify='no')
     
     if splot == 'yes':
         iraf.splot(output+'.spec')
@@ -1054,7 +1054,7 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
         raise ValueError('Matching did not converge: {}'.format(mesg))
 
 def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
-    use_ratios=False, ratio_range=[4200,4300], 
+    use_ratios=False, ratio_range=[4200, 4300], 
     one_side=True):
     """Scales input 1D spectra onto the same scale multiplicatively
     and then combines spectra using an uncertainty-weighted mean.
@@ -1081,7 +1081,7 @@ def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
         compute statistics for the coadd.
     """
 
-    spec_list_txt = [f.replace('fits','txt') for f in spec_list_fits]
+    spec_list_txt = [f.replace('fits', 'txt') for f in spec_list_fits]
 
     # first spectrum in the list is always the reference spectrum
     hdr = pyfits.getheader(spec_list_fits[0])
@@ -1101,14 +1101,14 @@ def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
     verr = np.float(hdr['VERR'])**2
     spec_ref = np.genfromtxt(spec_list_txt[0], names='wave, flux', 
             dtype='f4, f4')
-    err_ref = np.genfromtxt(spec_list_txt[0].replace('spec','err'), 
+    err_ref = np.genfromtxt(spec_list_txt[0].replace('spec', 'err'), 
             names='wave, flux', dtype='f4, f4')
     wave = spec_ref['wave']
     spec_ref = spec_ref['flux'].view(np.ma.masked_array)
     err_ref = err_ref['flux'].view(np.ma.masked_array)
 
 
-    #err_ref['flux'] = np.where(err_ref['flux'] <= 0, 1, err_ref['flux']) # reset bad error values to 1
+    # err_ref['flux'] = np.where(err_ref['flux'] <= 0, 1, err_ref['flux']) # reset bad error values to 1
     # boolean array: mask out invalid regions so average excludes zeros
     bad_err = err_ref <= 0
     spec_ref[bad_err] = np.ma.masked
@@ -1131,12 +1131,12 @@ def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
         seeing += hdr['FWHM']
         verr += np.float(hdr['VERR'])**2
         spec = np.genfromtxt(fname_txt, names='wave, flux', dtype='f4, f4')
-        err = np.genfromtxt(fname_txt.replace('spec','err'), 
+        err = np.genfromtxt(fname_txt.replace('spec', 'err'), 
                 names='wave, flux', dtype='f4, f4')
         spec = spec['flux'].view(np.ma.masked_array)
         err = err['flux'].view(np.ma.masked_array)
         # reset bad error values to 1
-        #err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) 
+        # err['flux'] = np.where(err['flux'] <= 0, 1, err['flux']) 
         bad_err = err <= 0
         spec[bad_err] = np.ma.masked
         err[bad_err] = np.ma.masked
@@ -1233,7 +1233,7 @@ def normalize_to_continuum(imgID, side='blue'):
         'blue' or 'red' to indicate the arm of the spectrograph
     """
 
-    rootname = '%s%04d' % (side,imgID)
+    rootname = '%s%04d' % (side, imgID)
     hdr = pyfits.getheader('%s.spec.fits' % rootname)
     iraf.unlearn('continuum')
     iraf.continuum.order = 25
@@ -1246,7 +1246,7 @@ def normalize_to_continuum(imgID, side='blue'):
     iraf.unlearn('hedit')
     iraf.hedit('norm_%s.fits' % rootname, 'np2', hdr['NAXIS1'], 
             add="yes", update="yes", verify="no")
-    #iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
+    # iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
 def stack_plot(spec_list, offset = False, alpha=1.):
     """Plot several spectra on top of each other with matplotlib.
@@ -1268,7 +1268,7 @@ def stack_plot(spec_list, offset = False, alpha=1.):
     for spec in spec_list:
         dat = np.genfromtxt(spec, names='wave, flux', 
             dtype='f4, f4')
-        plt.plot(dat['wave'],dat['flux']+offset_val,label = spec,alpha=alpha)
+        plt.plot(dat['wave'], dat['flux']+offset_val, label = spec, alpha=alpha)
         if offset:
             offset_val -= np.median(dat['flux'])
         print spec
@@ -1290,18 +1290,18 @@ def find_gain_readnoise(side='blue', aperture='1.0'):
     
     # high statistics section of the flat
     if side == 'blue':
-        section="[81:350,600:800]"
+        section = "[81:350,600:800]"
     # TODO: confirm these sections
     elif side == 'red':
         if NEW_RED_SIDE:
-            section="[1300:3000,50:400]"    
+            section = "[1300:3000,50:400]"    
         else:
-            section="[215:1000,50:265]"    
+            section = "[215:1000,50:265]"    
 
     flats = find_flats(aperture, side=side)
     biases = iraf.hselect('{}????.fits'.format(side), '$I', 
         'IMGTYPE == "bias" & EXPTIME == 0', Stdout=1)
-    nmin = np.min([len(flats),len(biases)])
+    nmin = np.min([len(flats), len(biases)])
     gain_all = []
     rdnoise_all = []
     for i in range(nmin-1):
@@ -1309,7 +1309,7 @@ def find_gain_readnoise(side='blue', aperture='1.0'):
             biases[i], biases[i+1], section = section)
         gain_all.append(gn)
         rdnoise_all.append(rn)
-    #print gain_all, rdnoise_all    
+    # print gain_all, rdnoise_all    
     print 'Gain: %.3f %.3f' % (np.average(gain_all), np.std(gain_all, ddof=1))
     print 'Readnoise: %.2f %.2f' % (np.average(rdnoise_all), np.std(rdnoise_all, ddof=1))
 
@@ -1390,7 +1390,7 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
 
     if output is None:
         hdr = pyfits.getheader(blue_files[0])
-        obj = hdr['OBJECT'].replace(' ','_')
+        obj = hdr['OBJECT'].replace(' ', '_')
         # create a unique name based on the input
 
         def ids_to_string(idlist):
@@ -1404,18 +1404,18 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
             ids_to_string(imgID_list_red) + '.fits'
 
     # clobber the old output file
-    iraf.delete(output,verify='no')
-    iraf.delete(output.replace('fits','txt'),verify='no')
+    iraf.delete(output, verify='no')
+    iraf.delete(output.replace('fits', 'txt'), verify='no')
     
     # determine dispersion: downsample to lower-resolution spectrum
     hdr = pyfits.getheader(blue_files[0])
     dw_blue = hdr['CDELT1']
     hdr = pyfits.getheader(red_files[0])
     dw_red = hdr['CDELT1']
-    dw = np.max([dw_blue,dw_red])
+    dw = np.max([dw_blue, dw_red])
 
     # cut off blue side redder than 5500
-    trim_files = [f.replace('spec','trim') for f in blue_files]
+    trim_files = [f.replace('spec', 'trim') for f in blue_files]
     output_trim_list = ','.join(trim_files)
     iraf.unlearn('dispcor')
     iraf.dispcor.input = input_blue_list
@@ -1439,14 +1439,14 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
     iraf.scombine.dw = dw
     iraf.scombine.scale = 'none'
     # attempt to join sides smoothly.
-    #iraf.scombine.zero = 'median'
-    #iraf.scombine.sample = ''
+    # iraf.scombine.zero = 'median'
+    # iraf.scombine.sample = ''
     iraf.scombine()
 
-    iraf.wspectext(output, output.replace('fits','txt'), header="no")
+    iraf.wspectext(output, output.replace('fits', 'txt'), header="no")
 
     # clean up
-    iraf.delete('blue*.trim.fits',verify='no')
+    iraf.delete('blue*.trim.fits', verify='no')
     
     if splot == 'yes':
         iraf.splot(output)
