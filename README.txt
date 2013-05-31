@@ -1,24 +1,17 @@
-KNOWN PROBLEMS:
-	absorption features in the "featureless" telluric calibration will 
-	become emission features in the corrected spectrum
 
-	wavelength solution will fail if gratings/angles other than "PTF standard"
-	are used--should at least warn the user if that is the case
+Quick Start
 
-todos:  
-install David's updated cosmics.py
-generate all arcs at once
-copy over new files without overwriting existing ones
-	(cp --no-clobber raw/*.fits .)
-wrapper for single extract-combine-plot run
-script to "undo" various parts of the analysis?  eg, start from scratch w/
-	standards
-brani suggests only using arcs taken in a single batch--need to adjust code
-	logic
+Complete night reduction:
 
-(calculate gain & readnoise from cal files)
 
----
+
+On the fly reduction:
+
+Start reducing data after you have taken your first standard star exposure
+
+use rsync --ignore-existing to avoid overwriting files you've modified
+
+
 
 cd to your data directory
 mdkir raw
@@ -185,3 +178,28 @@ wavelength solution bad?
 
 Are the crval and cdelt values appropriate for the CCD, grating, and angle
 you're using?  Defaults are:
+
+
+--
+
+KNOWN PROBLEMS:
+	absorption features in the "featureless" telluric calibration will 
+	become emission features in the corrected spectrum
+
+	wavelength solution will fail if gratings/angles other than "PTF standard"
+	are used--should at least warn the user if that is the case
+
+todos:  
+install David's updated cosmics.py
+generate all arcs at once
+copy over new files without overwriting existing ones
+	(cp --no-clobber raw/*.fits .)
+wrapper for single extract-combine-plot run
+script to "undo" various parts of the analysis?  eg, start from scratch w/
+	standards
+brani suggests only using arcs taken in a single batch--need to adjust code
+	logic
+
+(calculate gain & readnoise from cal files)
+
+---

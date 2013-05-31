@@ -10,6 +10,7 @@ Palomar 200-inch Double Spectrograph.
 from pyraf import iraf
 import numpy as np
 import os
+import subprocess
 import shutil
 import inspect
 import pyfits
@@ -1450,3 +1451,15 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
     
     if splot == 'yes':
         iraf.splot(output)
+
+def sync(raw='./raw'):
+	"""Convenience routine for on-the-fly reduction that syncs files from the
+	raw directory into the current working directory.
+
+	Because the pipeline modifies images in place, we need the --ignore-existing
+	argument to rsync to avoid reverting our processed images to the originals.
+	The -d argument allows us to decend into the specified subdirectory.
+	"""
+
+	subprocess.call(['rsync','-d','--ignore-existing',raw+'/','.'])
+
