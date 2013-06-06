@@ -492,8 +492,9 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
     iraf.standard.output = 'std-{}'.format(side)
-    iraf.standard.bandwidth = 20
-    iraf.standard.bandsep = 20
+	# use the tabulated bandpasses for the standards
+    iraf.standard.bandwidth = "INDEF"
+    iraf.standard.bandsep = "INDEF"
     # try these one at a time
     for imgID in imgID_list:
         # use the extracted spectrum!
@@ -503,9 +504,9 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
     if side == 'blue':
-        iraf.sensfunc.order = 50
+        iraf.sensfunc.order = 3
     else:
-        iraf.sensfunc.order = 50
+        iraf.sensfunc.order = 6
     # varun says to use ignoreaps, but it's causing me problems downstream
     # iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()

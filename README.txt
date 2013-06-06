@@ -158,7 +158,7 @@ extract1D(61,side='blue',flux=True)
 		sets wavelength range & binning
 			sensible defaults: 5500-10000, 1.525 red (new)
 							   5500-7800, 2.47 red (old)
-							   3800-5700, 1.07 blue
+							   3500-5700, 1.07 blue
 	
 	standards:
 		? for list
