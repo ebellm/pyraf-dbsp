@@ -492,8 +492,8 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
     iraf.standard.output = 'std-{}'.format(side)
-    iraf.standard.bandwidth = 50
-    iraf.standard.bandsep = 100
+    iraf.standard.bandwidth = 20
+    iraf.standard.bandsep = 20
     # try these one at a time
     for imgID in imgID_list:
         # use the extracted spectrum!
@@ -503,9 +503,9 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.sensfunc.standards = 'std-{}'.format(side)
     iraf.sensfunc.sensitivity = 'sens-{}'.format(side)
     if side == 'blue':
-        iraf.sensfunc.order = 3
+        iraf.sensfunc.order = 50
     else:
-        iraf.sensfunc.order = 6
+        iraf.sensfunc.order = 50
     # varun says to use ignoreaps, but it's causing me problems downstream
     # iraf.sensfunc.ignoreaps = 'yes'
     iraf.sensfunc()
@@ -704,6 +704,15 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # transform from pixel to wavelength coordinates
     iraf.hedit('trace_flat.fits', 'REFSPEC1', '%s%s.ms' % (rootname, os.path.splitext(arc)[0]), add="yes", verify="no", show="no")
     iraf.dispcor('trace_flat.fits', 'd_trace_flat.fits', table=rootname + '.ms.fits')
+    # normalize the response with a low-order spline
+    iraf.unlearn('continuum')
+    iraf.continuum.order = 5
+    iraf.continuum.high_rej = 5
+    iraf.continuum.low_rej = 2
+    iraf.continuum.niterate = 10
+    iraf.continuum.type = "ratio"
+    iraf.continuum('d_trace_flat.fits', 'norm_d_trace_flat.fits',
+                   interactive="no")
 
     # correct tellurics, if requested
     if telluric_cal_id is not None and side == 'red':
@@ -719,6 +728,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         iraf.telluric.ignoreaps = 'yes'
         iraf.telluric.xcorr = 'yes'
         iraf.telluric.tweakrms = 'yes'
+        iraf.telluric.threshold = 0.01
         iraf.telluric()
 
     # measure shift with sky lines *before* fluxing to avoid floating point errors
@@ -790,14 +800,31 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.scopy(rootname + '.ms.fits', rootname, band=4, format="onedspec")
 
     # correct wavelength calibration using sky lines
+    f = pyfits.open(rootname + '.0001.fits')
+    g = pyfits.open(rootname + '.3001.fits')
+    hdr = f[0].header
     if hdr['EXPTIME'] > 120:
+        f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        g[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        g[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
         iraf.specshift(rootname + '.0001', '%.3f' % (-offset_final))
         iraf.specshift(rootname + '.3001', '%.3f' % (-offset_final))
+    else:
+        f[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        g[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        g[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+    f.writeto(rootname + '.0001.fits', clobber=True)
+    g.writeto(rootname + '.3001.fits', clobber=True)
+    f.close()
+    g.close()
 
-    # normalize the spectrum and the uncertainty using the reponse function
-    iraf.imarith(rootname + '.0001', '/', 'd_trace_flat.fits', rootname + '.0001')
-    iraf.imarith(rootname + '.3001', '/', 'd_trace_flat.fits', rootname + '.3001')
+    # normalize the spectrum and the uncertainty using the response function
+    iraf.imarith(rootname + '.0001', '/', 'norm_d_trace_flat.fits', rootname + '.0001')
+    iraf.imarith(rootname + '.3001', '/', 'norm_d_trace_flat.fits', rootname + '.3001')
     iraf.delete('*trace_flat.fits', verify="no")
+
 
     # flux, if requested
     if flux:
@@ -1453,8 +1480,9 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
         iraf.splot(output)
 
 def sync(raw='./raw'):
-	"""Convenience routine for on-the-fly reduction that syncs files from the
-	raw directory into the current working directory.
+	"""Convenience routine for on-the-fly reduction that copies new files 
+	from the raw directory into the current working directory without
+	overwriting existing files.
 
 	Because the pipeline modifies images in place, we need the --ignore-existing
 	argument to rsync to avoid reverting our processed images to the originals.

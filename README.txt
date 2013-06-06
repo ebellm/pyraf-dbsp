@@ -1,15 +1,42 @@
 
-Quick Start
+Quick Start/Command Summary
 
 Complete night reduction:
 
+cd to your data directory
+mdkir raw
+cp *.fits raw
+	(This code will overwrite your files--you must save the originals
+	first!!!)
 
+ipython
 
-On the fly reduction:
+%run /home/ebellm/observing/reduction/dbsp/dbsp.py
+
+mark_bad('blue',[47,49,50])
+mark_bad('red',[35])
+
+create_arc_dome(side = 'blue')
+create_arc_dome(side = 'red')
+
+# for telluric correction, if desired
+extract1D(77,side='red')
+
+store_standards([41,42,43], side='blue')
+store_standards([41,42,43], side='red',telluric_cal_id = 77)
+
+extract1D(61,side='blue',flux=True)
+extract1D(63,side='red',flux=True)
+
+combine_sides([61],[63])
+
+Tips for on the fly reduction:
 
 Start reducing data after you have taken your first standard star exposure
 
-use rsync --ignore-existing to avoid overwriting files you've modified
+Copy (or rsync) new data into your raw subdirectory; then call sync() to 
+	bring the new files into your existing directory without overwriting
+	those you've already processed.
 
 
 
@@ -21,7 +48,7 @@ cp *.fits raw
 
 ipython
 
-%run ~/observing/reduction/dbsp/dbsp.py
+%run /home/ebellm/observing/reduction/dbsp/dbsp.py
 
 
 change the names of any files you don't want to process (use your log):
@@ -64,8 +91,6 @@ extract1D(77,side='red')
 
 store_standards([41,42,43], side='blue')
 store_standards([41,42,43], side='red',telluric_cal_id = 77)
-
-	for now, only use a single standard
 
 
 extract1D(61,side='blue',flux=True)
