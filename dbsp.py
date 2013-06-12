@@ -416,7 +416,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
         c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
         readnoise=det_pars[side]['readnoise'], 
         sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000,
-		skyOrder = 3, objectOrder = 3)
+        skyOrder = 3, objectOrder = 3)
         c.run(maxiter = 3)
         header.update('COSMIC', 1, '1 if we ran LA Cosmic')
         pyfits.writeto(filename, c.cleanarray, header, clobber=True)
@@ -493,7 +493,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.unlearn('standard')
     iraf.standard.caldir = "onedstds$iidscal/"
     iraf.standard.output = 'std-{}'.format(side)
-	# use the tabulated bandpasses for the standards
+    # use the tabulated bandpasses for the standards
     iraf.standard.bandwidth = "INDEF"
     iraf.standard.bandsep = "INDEF"
     # try these one at a time
@@ -1482,14 +1482,14 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
         iraf.splot(output)
 
 def sync(raw='./raw'):
-	"""Convenience routine for on-the-fly reduction that copies new files 
-	from the raw directory into the current working directory without
-	overwriting existing files.
+    """Convenience routine for on-the-fly reduction that copies new files 
+    from the raw directory into the current working directory without
+    overwriting existing files.
 
-	Because the pipeline modifies images in place, we need the --ignore-existing
-	argument to rsync to avoid reverting our processed images to the originals.
-	The -d argument allows us to decend into the specified subdirectory.
-	"""
+    Because the pipeline modifies images in place, we need the --ignore-existing
+    argument to rsync to avoid reverting our processed images to the originals.
+    The -d argument allows us to decend into the specified subdirectory.
+    """
 
-	subprocess.call(['rsync','-d','--ignore-existing',raw+'/','.'])
+    subprocess.call(['rsync','-d','--ignore-existing',raw+'/','.'])
 
