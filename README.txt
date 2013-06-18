@@ -13,8 +13,8 @@ ipython
 
 %run /home/ebellm/observing/reduction/dbsp/dbsp.py
 
-mark_bad('blue',[47,49,50])
-mark_bad('red',[35])
+mark_bad([47,49,50],side='blue')
+mark_bad([35],side='red')
 
 create_arc_dome(side = 'blue')
 create_arc_dome(side = 'red')
@@ -53,7 +53,7 @@ ipython
 
 change the names of any files you don't want to process (use your log):
 	especially focus/test exposures from the beginning of the night
-mark_bad('blue',[41,43,50])
+mark_bad([41,43,50],side='blue')
 
 create_arc_dome(side = 'blue')
 
@@ -207,18 +207,20 @@ you're using?  Defaults are:
 
 --
 
-KNOWN PROBLEMS:
+KNOWN PROBLEMS/LIMITATIONS:
 	absorption features in the "featureless" telluric calibration will 
 	become emission features in the corrected spectrum
 
 	wavelength solution will fail if gratings/angles other than "PTF standard"
 	are used--should at least warn the user if that is the case
 
+	only one object can be extracted from a given image
+
 todos:  
-install David's updated cosmics.py
+add a license
+provide more versatile code for using other gratings/angles/, or at least
+	specifying crval/cdelt [could just modify the dict directly]
 generate all arcs at once
-copy over new files without overwriting existing ones
-	(cp --no-clobber raw/*.fits .)
 wrapper for single extract-combine-plot run
 script to "undo" various parts of the analysis?  eg, start from scratch w/
 	standards

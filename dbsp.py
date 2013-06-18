@@ -72,7 +72,7 @@ else:
                        'biassec': '[1080:1124,1:300]', 'fwhm_arc': 1.6}
                     # crval is in Angstrom, cdelt is Angstrom/pixel
 
-def mark_bad(side, numbers):
+def mark_bad(numbers, side='blue'):
     """Utility for excluding specific files from further analysis.
 
     Saturated or mis-configured exposures are suffixed .bad so file searches
@@ -80,10 +80,10 @@ def mark_bad(side, numbers):
     
     Parameters
     ----------
+	imgID_list : list of ints or int
+        image id(s) to be marked as bad.
     side : {'blue' (default), 'red'}
         'blue' or 'red' to indicate the arm of the spectrograph
-    numbers : list of int or int
-        image id(s) to be marked as bad.
 
     """
 
