@@ -25,7 +25,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(inspect.getfile(
 
 def is_new_red_camera():
     """Utility for determining red camera version from image size."""
-    ids = range(10)
+    ids = range(15)
     for id in ids:
         name = 'red{:04d}.fits'.format(id)
         if os.path.exists(name):
@@ -80,7 +80,7 @@ def mark_bad(numbers, side='blue'):
     
     Parameters
     ----------
-	imgID_list : list of ints or int
+    imgID_list : list of ints or int
         image id(s) to be marked as bad.
     side : {'blue' (default), 'red'}
         'blue' or 'red' to indicate the arm of the spectrograph
@@ -98,20 +98,29 @@ def mark_bad(numbers, side='blue'):
         name = '{:s}{:04d}.fits'.format(side, num)
         os.rename(name, name+'.bad')
 
-def create_arc_dome(side='blue', trace=None, arcslit=0.5, overwrite=True):
+def create_arc_dome(side='both', trace=None, arcslit=0.5, overwrite=True):
     """Convenience function which subtracts bias, creates dome flats, and
     creates arc frames.
     
     Parameters
     ----------
-    side : {'blue' (default), 'red'}
-        'blue' or 'red' to indicate the arm of the spectrograph
+    side : {'both' (default), 'blue', 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph;
+        'both' to reduce both
     trace : int
         row or column of the spectral trace, if different from default.
 
     """
 
-    assert ((side == 'blue') or (side == 'red'))
+    assert ((side == 'both') or (side == 'blue') or (side == 'red'))
+
+    if side == 'both':
+        create_arc_dome(side='blue', trace=trace, arcslit=arcslit, 
+            overwrite=overwrite)
+        create_arc_dome(side='red', trace=trace, arcslit=arcslit, 
+            overwrite=overwrite)
+        return
+
     if trace is None:
         trace = det_pars[side]['trace']
     

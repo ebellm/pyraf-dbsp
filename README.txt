@@ -16,8 +16,7 @@ ipython
 mark_bad([47,49,50],side='blue')
 mark_bad([35],side='red')
 
-create_arc_dome(side = 'blue')
-create_arc_dome(side = 'red')
+create_arc_dome()
 
 # for telluric correction, if desired
 extract1D(77,side='red')
