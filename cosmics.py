@@ -623,7 +623,8 @@ class cosmicsimage:
 
 	def subtractSkyLines(self, verbose=None):
 		"""
-		Finds the object spectrum and subtracts it from the image, storing it in objectTrace
+		Finds the sky lines and subtracts them from the image, storing in 
+		skyLines
 		"""
 		if verbose == None:
 			verbose = self.verbose
@@ -646,7 +647,7 @@ class cosmicsimage:
 		
 		if transpose:
 			self.cleanarray = self.cleanarray.transpose()
-			self.objectTrace = self.objectTrace.transpose()
+			self.skyLines = self.skyLines.transpose()
 		
 
 	def run(self, maxiter = 4, verbose = False):
