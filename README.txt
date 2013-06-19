@@ -22,10 +22,10 @@ create_arc_dome()
 extract1D(77,side='red')
 
 store_standards([41,42,43], side='blue')
-store_standards([41,42,43], side='red',telluric_cal_id = 77)
+store_standards([41,42,43], side='red')
 
 extract1D(61,side='blue',flux=True)
-extract1D(63,side='red',flux=True)
+extract1D(63,side='red',flux=True, telluric_cal_id = 77)
 
 combine_sides([61],[63])
 
@@ -202,6 +202,21 @@ wavelength solution bad?
 
 Are the crval and cdelt values appropriate for the CCD, grating, and angle
 you're using?  Defaults are:
+
+You can use http://www.astro.caltech.edu/cgi-bin/grangle3.cgi to determine
+approximate crval and cdelt values for your grating. 
+Input the grating and side you are using and a guess for the center
+wavelength; click calculate and note the reported grating angle.  
+Edit your center wavelength guess until you find your grating angle.  
+The calculator then gives the center wavelength and dispersion you want.
+
+
+I'm getting "ERROR (1, "image keyword `AIRMASS' not found")" when I run
+create_arc_dome.
+
+One of your images is missing a header keyword--find it and mark it bad.
+
+
 
 
 --

@@ -425,7 +425,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
         c = cosmics.cosmicsimage(array, gain=det_pars[side]['gain'], 
         readnoise=det_pars[side]['readnoise'], 
         sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000,
-        skyOrder = 3, objectOrder = 3)
+        skyOrder = 0, objectOrder = 0)
         c.run(maxiter = 3)
         header.update('COSMIC', 1, '1 if we ran LA Cosmic')
         pyfits.writeto(filename, c.cleanarray, header, clobber=True)
