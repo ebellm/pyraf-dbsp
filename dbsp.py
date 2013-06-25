@@ -217,13 +217,9 @@ def find_flats(aperture, side='blue'):
     """
 
     # find dome flat images
-    domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000"' % aperture, Stdout=1)
-    # safest to check that IMGTYPE = flat 
-    # otherwise zenith pointings can get into the flats
-    domeflats = iraf.hselect(','.join(domeflats), '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS < 1.01 & IMGTYPE == "flat"' % aperture, Stdout=1)
+    domeflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "APERTURE" & APERTURE == "%s" & LAMPS == "0000000" & AIRMASS < 1.01 & IMGTYPE == "flat"' % aperture, Stdout=1)
     # find internal flat (incandescent lamp) images
-    intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001"' % aperture, Stdout=1)
-    intflats = iraf.hselect(','.join(intflats), '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS < 1.01' % aperture, Stdout=1)
+    intflats = iraf.hselect('%s????.fits' % side, '$I', 'TURRET == "LAMPS" & APERTURE == "%s" & LAMPS == "0000001" & AIRMASS < 1.01' % aperture, Stdout=1)
     # dome flats are prefered over internal flats
     flats = []
     if (len(intflats) > 0) & (len(domeflats) == 0):
@@ -733,7 +729,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         iraf.unlearn('telluric')
         iraf.telluric.input = rootname + '.ms.fits'
         iraf.telluric.output = ""
-        iraf.telluric.sample = "7584:7678,9252:9842"
+        iraf.telluric.sample = "6277:6288,6860:7000,7584:7678,9252:9842"
         iraf.telluric.interactive = "no"
         iraf.telluric.cal = 'norm_%s.fits' % tell_rootname
         iraf.telluric.ignoreaps = 'yes'

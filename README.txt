@@ -22,7 +22,7 @@ create_arc_dome()
 extract1D(77,side='red')
 
 store_standards([41,42,43], side='blue')
-store_standards([41,42,43], side='red')
+store_standards([41,42,43], side='red', telluric_cal_id = 77)
 
 extract1D(61,side='blue',flux=True)
 extract1D(63,side='red',flux=True, telluric_cal_id = 77)
