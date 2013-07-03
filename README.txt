@@ -11,6 +11,8 @@ cp *.fits raw
 
 ipython
 
+%run /path/to/dbsp.py
+(Caltech astro users can do:
 %run /home/ebellm/observing/reduction/dbsp/dbsp.py
 
 mark_bad([47,49,50],side='blue')
@@ -216,6 +218,9 @@ create_arc_dome.
 
 One of your images is missing a header keyword--find it and mark it bad.
 
+I'm not happy with the fluxing--what can I do?
+
+run iraf.sensfunc() and tweak to test, then repeat your extract1D call.
 
 
 
