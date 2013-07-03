@@ -148,7 +148,7 @@ def bias_subtract(side='blue', trace=None):
     """
 
     # update the headers
-    iraf.asthedit('%s????.fits' % side, '/home/bsesar/opt/python/DBSP.hdr')
+    iraf.asthedit('%s????.fits' % side, BASE_DIR + 'cal/DBSP.hdr')
     if side == 'blue':
         iraf.hedit('blue*.fits', 'DISPAXIS', 2, update="yes", 
             verify="no", add="yes", show="no")
@@ -412,7 +412,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
 
     if 'OBSERVAT' not in hdr:
         # update the headers
-        iraf.asthedit(filename, '/home/bsesar/opt/python/DBSP.hdr')
+        iraf.asthedit(filename, BASE_DIR + 'cal/DBSP.hdr')
 
     # remove cosmic rays with LA Cosmic
     if remove_cosmics and ('COSMIC' not in hdr) and (hdr['EXPTIME'] > 60) and \

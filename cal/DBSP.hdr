@@ -1,0 +1,8 @@
+observat = 'Palomar'
+@"date-obs" = UTSHUT
+epoch = epoch(@"date-obs")
+HJD
+JD
+LJD
+MJD = julday(@"date-obs")-2400000.5
+AIRMASS = real(AIRMASS)
