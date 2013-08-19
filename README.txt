@@ -239,7 +239,9 @@ todos:
 add a license
 provide more versatile code for using other gratings/angles/, or at least
 	specifying crval/cdelt [could just modify the dict directly]
-generate all arcs at once
+figure out how to turn off extra "Enters" where possible
+improve telluric correction defaults
+improve robustness of joining red and blue sides (bad fluxing kills it)
 wrapper for single extract-combine-plot run
 script to "undo" various parts of the analysis?  eg, start from scratch w/
 	standards

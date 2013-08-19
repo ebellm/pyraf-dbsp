@@ -581,7 +581,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     Generates text and fits spectra of the form {side}####.spec.{fits/txt}
     and uncertainties of the form {side}####.err.{fits/txt}.  Fluxed
     spectra and errors are stored as {side}####_flux.spec.{fits/txt}
-    and {side}####_flux.err.{fits/txt}.
+    and {side}####_flux.err.{fits/txt} in units of erg/cm2/sec/Ang.
 
     Parameters
     ----------
