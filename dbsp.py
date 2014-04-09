@@ -568,7 +568,7 @@ def estimateFWHM(imgID, side='blue'):
 
 def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', 
         resize='yes', flux=False, telluric_cal_id=None, reextract=False, 
-        redo='no', crval=None, cdelt=None):
+        redo='no', crval=None, cdelt=None, quicklook='no'):
     """Extract spectra for science objects and apply flux and telluric 
     corrections if requested.
     
@@ -612,12 +612,15 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         [Angstroms of central pixel]
     cdelt : int or None (default)
         Spectral dispersion, if different from default [Angstroms per pixel]
+	quicklook : {'yes', 'no' (default)}
+		Non-interactive aperture selection, tracing, and dispersion?
     """
 
     assert (side in ['blue', 'red'])
     assert (splot in ['yes', 'no'])
     assert (redo in ['yes', 'no'])
     assert (resize in ['yes', 'no'])
+    assert (quicklook in ['yes', 'no'])
 
     rootname = '%s%04d' % (side, imgID)
 
@@ -652,6 +655,17 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.unlearn('sparams')
     iraf.unlearn('apslitproc')
     iraf.unlearn('aidpars')
+
+    iraf.apslitproc.interactive = "yes"
+    iraf.apslitproc.edit = "yes"
+    iraf.apslitproc.fittrace = "yes"
+    iraf.apslitproc.ansedit = "YES"
+    iraf.apslitproc.ansfit = "YES"
+    iraf.apslitproc.ansfittrace = "YES"
+    iraf.apslitproc.ansfittrace1 = "YES"
+
+
+    iraf.doslit.quicklook = quicklook
     iraf.doslit.readnoise = "RON"
     iraf.doslit.gain = "GAIN"
     iraf.doslit.width = 1.4*fwhm
