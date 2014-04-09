@@ -234,10 +234,15 @@ KNOWN PROBLEMS/LIMITATIONS:
 	wavelength solution will fail if gratings/angles other than "PTF standard"
 	are used--should at least warn the user if that is the case
 
+	fluxing is not correcting for extinction
+
 	only one object can be extracted from a given image
+
+	some fluxing weirdness at the shortest blue wavelengths
 
 todos:  
 add a license
+fluxing should correct for extinction
 provide more versatile code for using other gratings/angles/, or at least
 	specifying crval/cdelt [could just modify the dict directly]
 figure out how to turn off extra "Enters" where possible

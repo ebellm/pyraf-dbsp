@@ -850,12 +850,15 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
 
     # flux, if requested
     if flux:
-        # TODO: run setairmass; ensure extinction is set up correctly
         iraf.unlearn('calibrate')
+		# mode switch to make the input noninteractive
+        iraf.calibrate.mode = 'h'
         iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
         iraf.calibrate.output = rootname+'_flux.0001,'+rootname+'_flux.3001'
+        # TODO: run setairmass; ensure extinction is set up correctly
+        iraf.calibrate.extinction = ''
         # I'm not sure yet why this gets moved to .0001...
-        iraf.calibrate.sensitivity = sensitivity = 'sens-{}.0001'.format(side)
+        iraf.calibrate.sensitivity = 'sens-{}.0001'.format(side)
         iraf.calibrate.ignoreaps = 'yes'
         iraf.calibrate()
 
