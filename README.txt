@@ -129,6 +129,7 @@ extract1D(61,side='blue',flux=True)
 		:order # to change fit order.  default of 4 is probably fine; don't
 		worry about excursions on the faint ends of the trace
 		d to delete any points biasing the fit
+		s (twice) to change the sampling region (eg to exclude faint ends)
 		f to refit
 		(aiming for RMS < 0.07 or so)
 

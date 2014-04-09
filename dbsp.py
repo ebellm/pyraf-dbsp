@@ -649,6 +649,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # set up doslit
     fwhm = 5.6
     iraf.unlearn('doslit')
+    iraf.unlearn('sparams')
     iraf.unlearn('apslitproc')
     iraf.unlearn('aidpars')
     iraf.doslit.readnoise = "RON"
@@ -656,24 +657,24 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.doslit.width = 1.4*fwhm
     iraf.doslit.crval = crval
     iraf.doslit.cdelt = cdelt
-    iraf.doslit.nsum = 50
+    iraf.sparams.nsum = 50
     iraf.doslit.clean = "yes"
     if side == 'blue':
         iraf.doslit.dispaxis = 2
     else:
         iraf.doslit.dispaxis = 1
-    iraf.doslit.extras = "yes"
-    iraf.doslit.lower = -1*int(round(iraf.doslit.width/2.))
-    iraf.doslit.upper = int(round(iraf.doslit.width/2.))
-    iraf.doslit.t_function = "legendre"
-    iraf.doslit.t_niter = 3
-    iraf.doslit.t_order = 4
-    iraf.doslit.t_high = 2
-    iraf.doslit.t_low = 2
-    iraf.doslit.weights = "variance"
-    iraf.doslit.b_order = 3
-    iraf.doslit.b_niterate = 1
-    iraf.doslit.select = "average"
+    iraf.sparams.extras = "yes"
+    iraf.sparams.lower = -1*int(round(iraf.doslit.width/2.))
+    iraf.sparams.upper = int(round(iraf.doslit.width/2.))
+    iraf.sparams.t_function = "legendre"
+    iraf.sparams.t_niter = 3
+    iraf.sparams.t_order = 4
+    iraf.sparams.t_high = 2
+    iraf.sparams.t_low = 2
+    iraf.sparams.weights = "variance"
+    iraf.sparams.b_order = 3
+    iraf.sparams.b_niterate = 1
+    iraf.sparams.select = "average"
     anullus_start = fwhm*2
     xL = np.floor(np.linspace(-80, -1*anullus_start, 10))
     xR = np.floor(np.linspace(anullus_start, 80, 10))
@@ -682,20 +683,20 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         background_range += '%d:%d,' % (np.int(xL[i]), np.int(xL[i+1]-1))
     for i in np.arange(xR.size-1):
         background_range += '%d:%d,' % (np.int(xR[i]+1), np.int(xR[i+1]))
-    iraf.doslit.b_sample = background_range[:-1]
-    iraf.doslit.i_function = "legendre"
-    iraf.doslit.i_order = 4
+    iraf.sparams.b_sample = background_range[:-1]
+    iraf.sparams.i_function = "legendre"
+    iraf.sparams.i_order = 4
     if side == 'blue':
-        iraf.doslit.coordlist = BASE_DIR + '/cal/FeAr_dbsp.dat'
+        iraf.sparams.coordlist = BASE_DIR + '/cal/FeAr_dbsp.dat'
         fwhm_arc = det_pars['blue']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
     else:
-        iraf.doslit.coordlist = BASE_DIR + '/cal/HeNeAr_dbsp.dat'
+        iraf.sparams.coordlist = BASE_DIR + '/cal/HeNeAr_dbsp.dat'
         fwhm_arc = det_pars['red']['fwhm_arc'] # input FWHM of arc lines here (in pixels)
-    iraf.doslit.fwidth = fwhm_arc
-    iraf.doslit.match = 10. # positive number is angstrom, negative is pix
-    iraf.doslit.i_niterate = 5
-    iraf.doslit.addfeatures = 'no'
-    iraf.doslit.linearize = "yes"
+    iraf.sparams.fwidth = fwhm_arc
+    iraf.sparams.match = 10. # positive number is angstrom, negative is pix
+    iraf.sparams.i_niterate = 5
+    iraf.sparams.addfeatures = 'no'
+    iraf.sparams.linearize = "yes"
 
     # extract 1D spectrum
     # print arc, iraf.doslit.crval, iraf.doslit.cdelt
