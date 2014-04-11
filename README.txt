@@ -28,6 +28,7 @@ store_standards([41,42,43], side='red', telluric_cal_id = 77)
 
 extract1D(61,side='blue',flux=True)
 extract1D(63,side='red',flux=True, telluric_cal_id = 77)
+	(for minimal interactivity, set quicklook='yes')
 
 combine_sides([61],[63])
 
@@ -36,7 +37,7 @@ Tips for on the fly reduction:
 Start reducing data after you have taken your first standard star exposure
 
 Copy (or rsync) new data into your raw subdirectory; then call sync() to 
-	bring the new files into your existing directory without overwriting
+	bring the new files into your working directory without overwriting
 	those you've already processed.
 
 
@@ -207,11 +208,16 @@ Are the crval and cdelt values appropriate for the CCD, grating, and angle
 you're using?  Defaults are:
 
 You can use http://www.astro.caltech.edu/cgi-bin/grangle3.cgi to determine
-approximate crval and cdelt values for your grating. 
+approximate crval (center wavelength in angstroms) and cdelt values 
+(disperson in Angstroms/pixel) for your grating. 
 Input the grating and side you are using and a guess for the center
 wavelength; click calculate and note the reported grating angle.  
 Edit your center wavelength guess until you find your grating angle.  
 The calculator then gives the center wavelength and dispersion you want.
+
+reset to new values with:
+det_pars['red']['crval'] = 7330
+det_pars['red']['cdelt'] = 3.022
 
 
 I'm getting "ERROR (1, "image keyword `AIRMASS' not found")" when I run
@@ -253,6 +259,7 @@ script to "undo" various parts of the analysis?  eg, start from scratch w/
 	standards
 brani suggests only using arcs taken in a single batch--need to adjust code
 	logic
+automate wavelength coordinate assignment for autoidentify
 
 (calculate gain & readnoise from cal files)
 

@@ -55,6 +55,10 @@ iraf.kpnoslit(_doprint=0)
 iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
 
+# use my modified sproc to avoid annoying doslit prompts
+#iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
+#iraf.redefine(sproc= BASE_DIR+"/cl/sproc.cl")
+
 # defaults
 # (blue trace is usually around 250-260)
 det_pars = {'blue': {'gain': 0.8, 'readnoise': 2.7, 'trace': 253,
@@ -374,6 +378,13 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     if trace is None:
         trace = det_pars[side]['trace']
 
+    # needed in iraf 2.16.1
+    iraf.unlearn('setinst')
+    iraf.setinst.instrument = 'kpnoheaders'
+    iraf.setinst.review = 'no'
+    iraf.setinst.mode = 'h'
+    iraf.setinst()
+
     # bias subtraction using the overscan
     hdr = pyfits.getheader(filename)
     iraf.unlearn('ccdproc')
@@ -490,7 +501,7 @@ def store_standards(imgID_list, side='blue', trace=None,
             
             extract1D(imgID, side=side, trace=trace, arc=arc, splot=splot,
                 redo=redo, resize=resize, flux=False, crval=crval, cdelt=cdelt,
-                telluric_cal_id = telluric_cal_id)
+                telluric_cal_id = telluric_cal_id, quicklook = 'no')
 
     iraf.delete('std-{}'.format(side), verify='no')
     iraf.delete('sens-{}'.format(side), verify='no')
@@ -613,7 +624,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     cdelt : int or None (default)
         Spectral dispersion, if different from default [Angstroms per pixel]
 	quicklook : {'yes', 'no' (default)}
-		Non-interactive aperture selection, tracing, and dispersion?
+		Non-interactive aperture selection, tracing, and dispersion?  Passed
+		to iraf.doslit.
     """
 
     assert (side in ['blue', 'red'])
@@ -656,14 +668,20 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.unlearn('apslitproc')
     iraf.unlearn('aidpars')
 
-    iraf.apslitproc.interactive = "yes"
-    iraf.apslitproc.edit = "yes"
-    iraf.apslitproc.fittrace = "yes"
+    # these are attempts to avoid the fitting prompts--don't work, since
+    # they are overwritten by sproc.cl
+    iraf.doslit.mode = 'al'
+    iraf.sproc.mode = 'al'
+    iraf.apslitproc.mode = 'al'
+    iraf.kpnoslit.mode = 'al'
+
+    iraf.apslitproc.interactive = "YES"
+    iraf.apslitproc.edit = "YES"
+    iraf.apslitproc.fittrace = "YES"
     iraf.apslitproc.ansedit = "YES"
     iraf.apslitproc.ansfit = "YES"
     iraf.apslitproc.ansfittrace = "YES"
     iraf.apslitproc.ansfittrace1 = "YES"
-
 
     iraf.doslit.quicklook = quicklook
     iraf.doslit.readnoise = "RON"
