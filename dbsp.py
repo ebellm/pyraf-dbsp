@@ -63,18 +63,94 @@ iraf.onedspec(_doprint=0)
 # (blue trace is usually around 250-260)
 det_pars = {'blue': {'gain': 0.8, 'readnoise': 2.7, 'trace': 253,
                     'crval': 4345, 'cdelt': -1.072, 'arc': 'FeAr_0.5.fits',
-                    'fwhm_arc': 2.8}}
+                    'fwhm_arc': 2.8, 'pixel_size': 15.}}
 
 if NEW_RED_SIDE:
     det_pars['red'] = {'gain': 2.8, 'readnoise': 8.5, 'trace': 166,
                        'crval': 7502, 'cdelt': 1.530, 'arc': 'HeNeAr_0.5.fits',
-                       'biassec': '[4128:4141,1:440]', 'fwhm_arc': 2.4}
+                       'biassec': '[4128:4141,1:440]', 'fwhm_arc': 2.4,
+                       'pixel_size': 15.}
 else:
     # old CCD
     det_pars['red'] = {'gain': 2.05, 'readnoise': 7.8, 'trace': 130,
                        'crval': 6600, 'cdelt': 2.46, 'arc': 'HeNeAr_0.5.fits',
-                       'biassec': '[1080:1124,1:300]', 'fwhm_arc': 1.6}
+                       'biassec': '[1080:1124,1:300]', 'fwhm_arc': 1.6,
+                       'pixel_size': 24.}
                     # crval is in Angstrom, cdelt is Angstrom/pixel
+                    # pixel size is in micron
+
+def check_gratings_angles():
+    """Check header values for grating and angles; update dispersion values
+    if needed."""
+
+    ids = range(15)
+    for side in ['red','blue']:
+        for id in ids:
+            name = '{}{:04d}.fits'.format(side,id)
+            if os.path.exists(name):
+                hdr = pyfits.getheader(name)
+                grating = np.int(hdr['GRATING'].split('/')[0])
+                deg, _, min, _ = hdr['ANGLE'].split()
+                angle = np.float(deg) + np.float(min)/60.
+
+                central_wavelength, dispersion = calculate_dispersion(
+                    grating, angle, side=side)
+
+                crval = np.round(central_wavelength)
+                cdelt = dispersion / 1.E3 * det_pars[side]['pixel_size']
+
+                if side == 'blue':
+                    cdelt *= -1.
+
+                det_pars[side]['crval'] = crval
+                det_pars[side]['cdelt'] = cdelt
+
+            else:
+                continue
+
+    
+
+def calculate_dispersion(grating, angle, side='blue', order=1):
+    """Calculate parameters needed to initialize dispersion solution.
+
+    Modifies global variable det_pars with the computed values.
+    See http://www.astro.caltech.edu/palomar/200inch/dbl_spec/dbspoverview.html
+    for details.
+
+    Parameters
+    ----------
+    grating : integer
+        grating lines/mm
+    angle : float
+        grating angle in degrees
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    order : int (default = 1)
+        Spectral order
+
+    Returns
+    -------
+    central_wavelength : float
+        central wavelength in Angstroms
+    dispersion : float
+        dispersion in Angstroms / mm
+    """
+
+    MM_TO_ANGSTROM = 10000000
+    INCHES_TO_MM = 25.4
+    diffracted_angle = {'red':35.00, 'blue':38.50} # degrees
+    focal_length = {'red':12.*INCHES_TO_MM, 'blue':9.*INCHES_TO_MM}
+
+    line_spacing = 1./grating # mm
+
+    theta_m = diffracted_angle[side] - angle
+    central_wavelength = order * np.abs((np.sin(np.radians(theta_m)) - 
+        np.sin(np.radians(angle))) * line_spacing * MM_TO_ANGSTROM) # Angstrom
+
+    dispersion = (line_spacing * np.cos(np.radians(theta_m)) / 
+        (focal_length[side] * order)) * MM_TO_ANGSTROM 
+
+    return central_wavelength, dispersion
 
 def mark_bad(numbers, side='blue'):
     """Utility for excluding specific files from further analysis.
@@ -623,9 +699,9 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
         [Angstroms of central pixel]
     cdelt : int or None (default)
         Spectral dispersion, if different from default [Angstroms per pixel]
-	quicklook : {'yes', 'no' (default)}
-		Non-interactive aperture selection, tracing, and dispersion?  Passed
-		to iraf.doslit.
+    quicklook : {'yes', 'no' (default)}
+        Non-interactive aperture selection, tracing, and dispersion?  Passed
+        to iraf.doslit.
     """
 
     assert (side in ['blue', 'red'])
@@ -665,23 +741,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     fwhm = 5.6
     iraf.unlearn('doslit')
     iraf.unlearn('sparams')
-    iraf.unlearn('apslitproc')
     iraf.unlearn('aidpars')
-
-    # these are attempts to avoid the fitting prompts--don't work, since
-    # they are overwritten by sproc.cl
-    iraf.doslit.mode = 'al'
-    iraf.sproc.mode = 'al'
-    iraf.apslitproc.mode = 'al'
-    iraf.kpnoslit.mode = 'al'
-
-    iraf.apslitproc.interactive = "YES"
-    iraf.apslitproc.edit = "YES"
-    iraf.apslitproc.fittrace = "YES"
-    iraf.apslitproc.ansedit = "YES"
-    iraf.apslitproc.ansfit = "YES"
-    iraf.apslitproc.ansfittrace = "YES"
-    iraf.apslitproc.ansfittrace1 = "YES"
 
     iraf.doslit.quicklook = quicklook
     iraf.doslit.readnoise = "RON"
@@ -731,8 +791,6 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.sparams.linearize = "yes"
 
     # extract 1D spectrum
-    # print arc, iraf.doslit.crval, iraf.doslit.cdelt
-    # iraf.epar('doslit')
     iraf.doslit(rootname+'.fits', arcs=arc, splot=splot, redo=redo, resize=resize)
 
     # extract the trace from the flat-field image
@@ -869,7 +927,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # flux, if requested
     if flux:
         iraf.unlearn('calibrate')
-		# mode switch to make the input noninteractive
+        # mode switch to make the input noninteractive
         iraf.calibrate.mode = 'h'
         iraf.calibrate.input = rootname+'.0001,'+rootname+'.3001'
         iraf.calibrate.output = rootname+'_flux.0001,'+rootname+'_flux.3001'
