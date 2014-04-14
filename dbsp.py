@@ -80,8 +80,8 @@ else:
                     # pixel size is in micron
 
 def check_gratings_angles():
-    """Check header values for grating and angles; update dispersion values
-    if needed."""
+    """Check header values for grating and angles and update dispersion values
+    accordingly."""
 
     ids = range(15)
     for side in ['red','blue']:
@@ -107,8 +107,6 @@ def check_gratings_angles():
 
             else:
                 continue
-
-    
 
 def calculate_dispersion(grating, angle, side='blue', order=1):
     """Calculate parameters needed to initialize dispersion solution.
@@ -177,6 +175,10 @@ def mark_bad(numbers, side='blue'):
         num = numbers
         name = '{:s}{:04d}.fits'.format(side, num)
         os.rename(name, name+'.bad')
+
+# run automatically
+check_gratings_angles()
+    
 
 def create_arc_dome(side='both', trace=None, arcslit=0.5, overwrite=True):
     """Convenience function which subtracts bias, creates dome flats, and

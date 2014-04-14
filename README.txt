@@ -205,7 +205,8 @@ Why isn't autoidentify putting the arc lines in the right place?  Why is my
 wavelength solution bad?
 
 Are the crval and cdelt values appropriate for the CCD, grating, and angle
-you're using?  Defaults are:
+you're using?   The check_gratings_angles() function attempts to automatically
+determine the correct values, but it is not foolproof.
 
 You can use http://www.astro.caltech.edu/cgi-bin/grangle3.cgi to determine
 approximate crval (center wavelength in angstroms) and cdelt values 
@@ -237,9 +238,6 @@ KNOWN PROBLEMS/LIMITATIONS:
 	absorption features in the "featureless" telluric calibration will 
 	become emission features in the corrected spectrum
 
-	wavelength solution will fail if gratings/angles other than "PTF standard"
-	are used--should at least warn the user if that is the case
-
 	fluxing is not correcting for extinction
 
 	only one object can be extracted from a given image
@@ -249,8 +247,6 @@ KNOWN PROBLEMS/LIMITATIONS:
 todos:  
 add a license
 fluxing should correct for extinction
-provide more versatile code for using other gratings/angles/, or at least
-	specifying crval/cdelt [could just modify the dict directly]
 figure out how to turn off extra "Enters" where possible
 improve telluric correction defaults
 improve robustness of joining red and blue sides (bad fluxing kills it)
