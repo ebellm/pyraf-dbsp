@@ -256,6 +256,7 @@ script to "undo" various parts of the analysis?  eg, start from scratch w/
 brani suggests only using arcs taken in a single batch--need to adjust code
 	logic
 automate wavelength coordinate assignment for autoidentify
+write a quicklook='yes' loop that rapidly reduces a night's data
 
 (calculate gain & readnoise from cal files)
 

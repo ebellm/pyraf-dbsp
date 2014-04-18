@@ -238,6 +238,13 @@ def bias_subtract(side='blue', trace=None):
         iraf.hedit('red*.fits', 'DISPAXIS', 1, update="yes", 
             verify="no", add="yes", show="no")
 
+    # Need to define an instrument translation file in iraf 2.16.1
+    iraf.unlearn('setinst')
+    iraf.setinst.instrument = 'kpnoheaders'
+    iraf.setinst.review = 'no'
+    iraf.setinst.mode = 'h'
+    iraf.setinst()
+
     # bias subtraction using the overscan
     filenames = glob("%s????.fits" % side)
     hdr = pyfits.getheader(filenames[0])
@@ -456,7 +463,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
     if trace is None:
         trace = det_pars[side]['trace']
 
-    # needed in iraf 2.16.1
+    # Need to define an instrument translation file in iraf 2.16.1
     iraf.unlearn('setinst')
     iraf.setinst.instrument = 'kpnoheaders'
     iraf.setinst.review = 'no'
