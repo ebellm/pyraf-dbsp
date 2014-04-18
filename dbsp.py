@@ -5,7 +5,7 @@ Palomar 200-inch Double Spectrograph.
 
 # Authors:  Eric Bellm <ebellm@caltech.edu>,
 #           Branimir Sesar <bsesar@astro.caltech.edu>
-# License: BSD Style.
+# License: MIT.
 
 from pyraf import iraf
 import numpy as np
@@ -1620,4 +1620,3 @@ def sync(raw='./raw'):
     """
 
     subprocess.call(['rsync','-d','--ignore-existing',raw+'/','.'])
-
