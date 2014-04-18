@@ -56,8 +56,7 @@ iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
 
 # use my modified sproc to avoid annoying doslit prompts
-#iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
-#iraf.redefine(sproc= BASE_DIR+"/cl/sproc.cl")
+iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
 
 # defaults
 # (blue trace is usually around 250-260)
