@@ -662,7 +662,7 @@ def estimateFWHM(imgID, side='blue'):
         f.close()
 
 def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', 
-        resize='yes', flux=False, telluric_cal_id=None, reextract=False, 
+        resize='yes', flux=True, telluric_cal_id=None, reextract=False, 
         redo='no', crval=None, cdelt=None, quicklook='no'):
     """Extract spectra for science objects and apply flux and telluric 
     corrections if requested.
@@ -1587,6 +1587,27 @@ def combine_sides_scombine(imgID_list_blue, imgID_list_red, output=None, splot='
     
     if splot == 'yes':
         iraf.splot(output)
+
+def batch_process(minID, maxID, side='blue', **kwargs):
+    """Convenience function for reducing large numbers of consecutive spectra.
+
+    Skips any missing files.
+
+    Parameters
+    ----------
+    side : {'blue' (default), 'red'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+    minID : int
+        Minimum file number of image to process, e.g., red0011.fits -> 11
+    maxID : int
+        Maximum file number of image to process, e.g., red0020.fits -> 20
+    Other keyword arguments (e.g., quicklook, flux) are passed to extract1D.
+    """
+
+    for i in range(minID, maxID+1, 1):
+        filename = '%s%04d.fits' % (side, i)
+        if os.path.exists(filename):
+            extract1D(i, side=side, **kwargs)
 
 def sync(raw='./raw'):
     """Convenience routine for on-the-fly reduction that copies new files 

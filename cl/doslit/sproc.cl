@@ -191,7 +191,7 @@ begin
 
 	# Now we are ready to process the object spectra.
 
-	# do make the object extraction interactive
+	# don't make the object extraction interactive
 	apslitproc.ansedit = "NO"
 	apslitproc.ansfittrace = "NO"
 

@@ -1,0 +1,4 @@
+This version of doslit is copied from IRAF 2.16.1; only sproc.cl is modified, 
+for purposes of smoother interactivity.  (See http://iraf.net/forum/viewtopic.php?showtopic=123774 for related discussion.)
+
+COPYRIGHTS presents the legal permissions for redistribution of this modified code.
