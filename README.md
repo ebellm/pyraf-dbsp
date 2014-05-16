@@ -149,7 +149,7 @@ Sensible defaults (assuming the 600/4000 grating on the blue side and 316/7500 g
 
 	5500-10000, 1.525 red (new red camera)
 	5500-7800, 2.47 red (old red camera)
-	3700-5700, 1.07 blue
+	3800-5700, 1.07 blue
 	
 Accept the suggested number of output pixels, then say `no` when it asks you again if you want to change them.
 
