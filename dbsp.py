@@ -89,7 +89,14 @@ def check_gratings_angles():
             if os.path.exists(name):
                 hdr = pyfits.getheader(name)
                 grating = np.int(hdr['GRATING'].split('/')[0])
-                deg, _, min, _ = hdr['ANGLE'].split()
+                angle_toks = hdr['ANGLE'].split()
+                deg = angle_toks[0]
+                if len(angle_toks) > 2:
+                    # ANGLE   = '27 deg 17 min'      / Grating Angle
+                    min = angle_toks[2]
+                else:
+                    # ANGLE   = '39.2 deg'      / Grating Angle
+                    min = 0.
                 angle = np.float(deg) + np.float(min)/60.
 
                 central_wavelength, dispersion = calculate_dispersion(
