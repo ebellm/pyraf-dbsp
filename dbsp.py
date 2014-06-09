@@ -354,7 +354,7 @@ def make_flats(side='blue',overwrite=False):
             if overwrite:
                 iraf.delete('flat_%s_%s.fits' % (side, aperture), verify='no')
                 if len(flats) < 3:
-                    iraf.flatcombine(','.join(flats), output='temp', reject='average')
+                    iraf.flatcombine(','.join(flats), output='temp', reject='pclip')
                 if len(flats) >= 3:
                     iraf.flatcombine(','.join(flats), output='temp', reject='avsigclip')
 
@@ -369,7 +369,7 @@ def make_flats(side='blue',overwrite=False):
                     iraf.twodspec.longslit.dispaxis = 2
                 else:
                     iraf.twodspec.longslit.dispaxis = 1
-                iraf.response('temp', 'temp', 
+                iraf.response('temp[1]', 'temp[1]', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 os.rename('temp.fits', 'raw_flat_%s_%s.fits' % (side, aperture))
 

@@ -231,6 +231,7 @@ This error is mysterious; it pops up irregularly, particularly if a routine has 
 
 
 ### Known Problems & Limitations:
+* expects FeAr and (simulataneous) HeNeAr arcs in the 0.5 arcsec slit
 * any absorption features in the "featureless" telluric calibration will become emission features in the corrected spectrum
 * fluxing is not correcting for extinction?
 * only one object can be extracted from a given image
@@ -273,3 +274,10 @@ July 3, 2013
 Initial public release.
 
 
+#### 0.1.1 dev
+(ongoing)
+
+Bug fixes:
+
+* allow check_gratings_angles to handle decimal ANGLE keywords
+* handle bug where flatcombine expected multiextension FITS 
