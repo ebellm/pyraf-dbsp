@@ -186,7 +186,7 @@ def mark_bad(numbers, side='blue'):
 check_gratings_angles()
     
 
-def create_arc_dome(side='both', trace=None, arcslit=0.5, overwrite=True):
+def create_arc_dome(side='both', trace=None, arcslit='0.5', overwrite=True):
     """Convenience function which subtracts bias, creates dome flats, and
     creates arc frames.
     
@@ -197,7 +197,10 @@ def create_arc_dome(side='both', trace=None, arcslit=0.5, overwrite=True):
         'both' to reduce both
     trace : int
         row or column of the spectral trace, if different from default.
-
+    arcslit : {'0.5','1.0', '1.5', '2.0'}
+        string indicating the preferred arc slit width
+    overwrite : boolean (default True)
+        If True, overwrites any existing files; if False, skips processing.
     """
 
     assert ((side == 'both') or (side == 'blue') or (side == 'red'))
@@ -387,20 +390,20 @@ def make_flats(side='blue',overwrite=False):
             print "No dome or internal flats for the %s arcsec slit." % aperture
 
 
-def make_arcs_blue(slit=0.5, overwrite=False):
+def make_arcs_blue(slit='0.5', overwrite=False):
     """Creates the master FeAr arc with iraf.imcombine.
 
     Stores arc as FeAr_{slit}.fits.
 
     Parameters
     ----------
-    slit : {'0.5','1.0', '1.5', '2.0'}
+    slit : {'0.5' (default),'1.0', '1.5', '2.0'}
         string indicating the slit width
     overwrite : boolean
         If True, overwrites existing arc; if False, skips processing.
     """
 
-    aperture = "{:3.1f}".format(slit)
+    aperture = slit
 
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['blue']['readnoise']
@@ -415,20 +418,20 @@ def make_arcs_blue(slit=0.5, overwrite=False):
             verify='no')
     iraf.imcombine(','.join(arcs), 'FeAr_{}'.format(aperture), reject="none")
 
-def make_arcs_red(slit=0.5, overwrite=False):
+def make_arcs_red(slit='0.5', overwrite=False):
     """Creates the master HeNeAr arc with iraf.imcombine.
 
     Stores arc as HeNeAr_{slit}.fits.
 
     Parameters
     ----------
-    slit : {'0.5','1.0', '1.5', '2.0'}
+    slit : {'0.5' (default), '1.0', '1.5', '2.0'}
         string indicating the slit width
     overwrite : boolean
         If True, overwrites existing arc; if False, skips processing.
     """
 
-    aperture = "{:3.1f}".format(slit)
+    aperture = slit
 
     iraf.unlearn('imcombine')
     iraf.imcombine.rdnoise = det_pars['red']['readnoise']

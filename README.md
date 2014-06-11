@@ -206,6 +206,18 @@ reset to new values with:
 	det_pars['red']['crval'] = 7330
 	det_pars['red']['cdelt'] = 3.022
 
+*I don't have any 0.5" slit arcs--what can I do?*
+
+Choose another slit width and set it as the default:
+
+    # use 1.0 arcsecond slit for arcs
+    create_arc_dome(arcslit='1.0')
+
+    # set default arc files
+    det_pars['blue']['arc']  = 'FeAr_1.0.fits'
+    det_pars['red']['arc']  = 'HeNeAr_1.0.fits
+
+
 
 *I'm getting `"ERROR (1, "image keyword AIRMASS not found")"` when I run `create_arc_dome()`.*
 
@@ -281,3 +293,7 @@ Bug fixes:
 
 * allow check_gratings_angles to handle decimal ANGLE keywords
 * handle bug where flatcombine expected multiextension FITS 
+
+Enhancements:
+
+* harmonize aperture formats across routines
