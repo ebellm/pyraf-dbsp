@@ -248,6 +248,7 @@ This error is mysterious; it pops up irregularly, particularly if a routine has 
 * fluxing is not correcting for extinction?
 * only one object can be extracted from a given image
 * some fluxing weirdness at the shortest blue wavelengths
+* joining red and blue sides with combine_sides often introduces artifacts
 
 ### Todos:  
 * fluxing should correct for extinction
