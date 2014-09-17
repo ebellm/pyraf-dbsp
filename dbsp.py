@@ -372,7 +372,7 @@ def make_flats(side='blue',overwrite=False):
                     iraf.twodspec.longslit.dispaxis = 2
                 else:
                     iraf.twodspec.longslit.dispaxis = 1
-                iraf.response('temp[1]', 'temp[1]', 
+                iraf.response('temp[0]', 'temp[0]', 
                     'flat_%s_%s.fits' % (side, aperture), interactive="no")
                 os.rename('temp.fits', 'raw_flat_%s_%s.fits' % (side, aperture))
 
