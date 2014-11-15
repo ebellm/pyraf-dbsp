@@ -1397,12 +1397,13 @@ def normalize_to_continuum(imgID, side='blue'):
 
 def stack_plot(spec_list, offset = False, alpha=1.):
     """Plot several spectra on top of each other with matplotlib.
+    Consider also iraf.specplot('spec1,spec2,spec3').
 
     Parameters
     ----------
     spec_list : list of strings
-        List of text spectra extracted by extract1D 
-        (e.g., ['red0001_flux.spec.txt'])
+        List of text or fits spectra extracted by extract1D 
+        (e.g., ['red0001_flux.spec.txt',red0002_flux.spec.fits'])
     offset : boolean (default False)
         Plot with a vertical offset between spectra?
     alpha : float, default 1.0 
@@ -1413,8 +1414,19 @@ def stack_plot(spec_list, offset = False, alpha=1.):
 
     offset_val = 0.
     for spec in spec_list:
-        dat = np.genfromtxt(spec, names='wave, flux', 
-            dtype='f4, f4')
+        if spec.endswith('txt'):
+            dat = np.genfromtxt(spec, names='wave, flux', 
+                dtype='f4, f4')
+        elif spec.endswith('fits'):
+            hdulist = pyfits.open(spec)
+            hdr = hdulist[0].header
+            flux = hdulist[0].data
+            crpix1 = hdr['CRPIX1']
+            crval1 = hdr['CRVAL1']
+            cd1_1 = hdr['CDELT1']
+            spec_length = len(flux)
+            wave = cd1_1 * (np.arange(spec_length) - (crpix1-1)) + crval1
+            dat = {'wave':wave,'flux':flux}
         plt.plot(dat['wave'], dat['flux']+offset_val, label = spec, alpha=alpha)
         if offset:
             offset_val -= np.median(dat['flux'])
