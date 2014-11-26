@@ -206,16 +206,16 @@ def create_arc_dome(side='both', trace=None, arcslit='0.5', overwrite=True):
     assert ((side == 'both') or (side == 'blue') or (side == 'red'))
 
     if side == 'both':
-		if len(glob('blue????.fits')) > 0:
-			create_arc_dome(side='blue', trace=trace, arcslit=arcslit, 
-				overwrite=overwrite)
-		else:
-			print 'No blue side files found.'
-		if len(glob('red????.fits')) > 0:
-			create_arc_dome(side='red', trace=trace, arcslit=arcslit, 
-				overwrite=overwrite)
-		else:
-			print 'No red side files found.'
+        if len(glob('blue????.fits')) > 0:
+            create_arc_dome(side='blue', trace=trace, arcslit=arcslit, 
+                overwrite=overwrite)
+        else:
+            print 'No blue side files found.'
+        if len(glob('red????.fits')) > 0:
+            create_arc_dome(side='red', trace=trace, arcslit=arcslit, 
+                overwrite=overwrite)
+        else:
+            print 'No red side files found.'
         return
 
     if trace is None:
