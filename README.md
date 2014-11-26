@@ -262,6 +262,19 @@ This error is mysterious; it pops up irregularly, particularly if a routine has 
 
 ### Revisions
 
+#### 0.2.1 dev
+(ongoing)
+
+Bug fixes:
+
+* allow check_gratings_angles to handle decimal ANGLE keywords
+* handle bug where flatcombine expected multiextension FITS 
+* Provide smoother handling if create_arc_dome(side='both') is called when data from only one side are present
+
+
+Enhancements:
+
+* harmonize aperture formats across routines
 
 #### 0.2.0 
 April 18, 2014
@@ -286,15 +299,3 @@ July 3, 2013
 
 Initial public release.
 
-
-#### 0.1.1 dev
-(ongoing)
-
-Bug fixes:
-
-* allow check_gratings_angles to handle decimal ANGLE keywords
-* handle bug where flatcombine expected multiextension FITS 
-
-Enhancements:
-
-* harmonize aperture formats across routines
