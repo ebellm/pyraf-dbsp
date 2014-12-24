@@ -259,6 +259,7 @@ This error is mysterious; it pops up irregularly, particularly if a routine has 
 * Brani suggests only using arcs taken in a single batch--need to adjust code logic
 * automate wavelength coordinate assignment for autoidentify?
 * calculate gain & readnoise from cal files
+* set fwhm_arc correctly (currently only uses a default)
 
 ### Revisions
 

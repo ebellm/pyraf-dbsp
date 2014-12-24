@@ -89,6 +89,7 @@ def check_gratings_angles():
             if os.path.exists(name):
                 hdr = pyfits.getheader(name)
                 grating = np.int(hdr['GRATING'].split('/')[0])
+                assert(grating in [158, 300, 316, 600, 1200])
                 angle_toks = hdr['ANGLE'].split()
                 deg = angle_toks[0]
                 if len(angle_toks) > 2:
@@ -1635,7 +1636,12 @@ def batch_process(minID, maxID, side='blue', **kwargs):
     for i in range(minID, maxID+1, 1):
         filename = '%s%04d.fits' % (side, i)
         if os.path.exists(filename):
-            extract1D(i, side=side, **kwargs)
+            try:
+                extract1D(i, side=side, **kwargs)
+            except iraf.IrafError:
+                # some errors just require you to try again...
+                print 'Hit error, retrying...'
+                extract1D(i, side=side, **kwargs)
 
 def sync(raw='./raw'):
     """Convenience routine for on-the-fly reduction that copies new files 
