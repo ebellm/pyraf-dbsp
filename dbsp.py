@@ -1402,6 +1402,34 @@ def normalize_to_continuum(imgID, side='blue'):
             add="yes", update="yes", verify="no")
     # iraf.imcopy('norm_%s.fits' % rootname, 'norm_%s.imh' % rootname)
 
+def read_spectrum(filename):
+
+    def _load_fits_spectrum(filename):
+        hdulist = pyfits.open(filename)
+        hdr = hdulist[0].header
+        val = hdulist[0].data
+        crpix1 = hdr['CRPIX1']
+        crval1 = hdr['CRVAL1']
+        cd1_1 = hdr['CDELT1']
+        spec_length = len(flux)
+        wave = cd1_1 * (np.arange(spec_length) - (crpix1-1)) + crval1
+        return wave, val
+
+    errfile = filename.replace('spec','err')
+
+    if filename.endswith('txt'):
+        dat = np.genfromtxt(filename, names='wave, flux', 
+            dtype='f4, f4')
+        if os.path.exists(errfile):
+            errdat = np.genfromtxt(errfile, names='ewave, err', 
+                dtype='f4, f4')
+
+    elif filename.endswith('fits'):
+        wave, flux = _load_fits_spectrum(filename)
+        if os.path.exists(errfile):
+            ewave, err = _load_fits_spectrum(errfile)
+
+
 def stack_plot(spec_list, offset = False, alpha=1.):
     """Plot several spectra on top of each other with matplotlib.
     Consider also iraf.specplot('spec1,spec2,spec3').
@@ -1421,19 +1449,7 @@ def stack_plot(spec_list, offset = False, alpha=1.):
 
     offset_val = 0.
     for spec in spec_list:
-        if spec.endswith('txt'):
-            dat = np.genfromtxt(spec, names='wave, flux', 
-                dtype='f4, f4')
-        elif spec.endswith('fits'):
-            hdulist = pyfits.open(spec)
-            hdr = hdulist[0].header
-            flux = hdulist[0].data
-            crpix1 = hdr['CRPIX1']
-            crval1 = hdr['CRVAL1']
-            cd1_1 = hdr['CDELT1']
-            spec_length = len(flux)
-            wave = cd1_1 * (np.arange(spec_length) - (crpix1-1)) + crval1
-            dat = {'wave':wave,'flux':flux}
+        dat = read_spectrum(spec)
         plt.plot(dat['wave'], dat['flux']+offset_val, label = spec, alpha=alpha)
         if offset:
             offset_val -= np.median(dat['flux'])
@@ -1624,8 +1640,9 @@ def batch_process(minID, maxID, side='blue', **kwargs):
 
     Parameters
     ----------
-    side : {'blue' (default), 'red'}
-        'blue' or 'red' to indicate the arm of the spectrograph
+    side : {'blue' (default), 'red', 'both'}
+        'blue' or 'red' to indicate the arm of the spectrograph; 'both'
+        to loop through both
     minID : int
         Minimum file number of image to process, e.g., red0011.fits -> 11
     maxID : int
@@ -1633,15 +1650,20 @@ def batch_process(minID, maxID, side='blue', **kwargs):
     Other keyword arguments (e.g., quicklook, flux) are passed to extract1D.
     """
 
-    for i in range(minID, maxID+1, 1):
-        filename = '%s%04d.fits' % (side, i)
-        if os.path.exists(filename):
-            try:
-                extract1D(i, side=side, **kwargs)
-            except iraf.IrafError:
-                # some errors just require you to try again...
-                print 'Hit error, retrying...'
-                extract1D(i, side=side, **kwargs)
+    if side = 'both':
+        sides = ['blue','red']
+    else:
+        sides = [side]
+    for side in sides:
+        for i in range(minID, maxID+1, 1):
+            filename = '%s%04d.fits' % (side, i)
+            if os.path.exists(filename):
+                try:
+                    extract1D(i, side=side, **kwargs)
+                except iraf.IrafError:
+                    # some errors just require you to try again...
+                    print 'Hit error, retrying...'
+                    extract1D(i, side=side, **kwargs)
 
 def sync(raw='./raw'):
     """Convenience routine for on-the-fly reduction that copies new files 
