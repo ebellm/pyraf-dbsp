@@ -1650,7 +1650,7 @@ def batch_process(minID, maxID, side='blue', **kwargs):
     Other keyword arguments (e.g., quicklook, flux) are passed to extract1D.
     """
 
-    if side = 'both':
+    if side == 'both':
         sides = ['blue','red']
     else:
         sides = [side]
