@@ -260,6 +260,9 @@ This error is mysterious; it pops up irregularly, particularly if a routine has 
 * automate wavelength coordinate assignment for autoidentify?
 * calculate gain & readnoise from cal files
 * set fwhm_arc correctly (currently only uses a default)
+* write auto-joiner to speed joining and coaddition
+* write a log file to record processing steps taken
+* add pipeline version and reducer information to output headers
 
 ### Revisions
 

@@ -1012,7 +1012,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.delete('wavelength_offset*.dat', verify='no')
     iraf.delete(rootname + '.ms.fits', verify="no")
     iraf.delete(rootname + '.0001.fits', verify="no")
-    iraf.delete(rootname + '.3001.fits', verify="no")
+#    iraf.delete(rootname + '.3001.fits', verify="no")
     if flux:
         iraf.delete(rootname + '_flux.0001.fits', verify="no")
         iraf.delete(rootname + '_flux.3001.fits', verify="no")
@@ -1411,7 +1411,7 @@ def read_spectrum(filename):
         crpix1 = hdr['CRPIX1']
         crval1 = hdr['CRVAL1']
         cd1_1 = hdr['CDELT1']
-        spec_length = len(flux)
+        spec_length = len(val)
         wave = cd1_1 * (np.arange(spec_length) - (crpix1-1)) + crval1
         return wave, val
 
