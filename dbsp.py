@@ -1665,6 +1665,132 @@ def batch_process(minID, maxID, side='blue', **kwargs):
                     print 'Hit error, retrying...'
                     extract1D(i, side=side, **kwargs)
 
+def auto_join(blue_range, red_range, coadd_consecutive=True, do_joins=False):
+    """Convenience function for joining large numbers of consecutive spectra.
+
+    Skips any missing files.
+
+    Warning! Not currently well-tested.
+
+    Note that the state machine doesn't currently cover all possible cases;
+    some pathological cases may cause failures, but only matched data will 
+    ever be coadded.
+
+    Parameters
+    ----------
+    blue_range: list
+        Range of blue side file numbers to process, e.g., 
+        blue0020.fits-blue0050 -> [20,50]
+    red_range: list
+        Range of red side file numbers to process, e.g., 
+        red0020.fits-red0050 -> [20,50]
+    coadd_consecutive: boolean, default True
+        Should consecutive observations of the same source be joined?
+    do_joins: boolean, default False
+        Should the coadd_map be passed to combine_sides?
+    """
+
+    coadd_map = []
+    current_obj_ra = ''
+    current_blue = []
+    current_red = []
+    objects = []
+    b = blue_range[0]
+    r = red_range[0]
+    while (b <= blue_range[1]) or (r <= red_range[1]):
+        print b, r
+
+        def load_hdrpars(i,side='blue'):
+            filename = '%s%04d.fits' % (side, i)
+            file_exists = os.path.exists(filename)
+            if file_exists:
+                hdr = pyfits.getheader(filename)
+                # just use the nearest arcsec--small telescope drifts otherwise
+                return True, hdr['OBJECT'],hdr['RA'][:8],hdr['DEC'][:9]
+            else:
+                return False, None, None, None
+
+        bfileexists, bobj, bra, bdec = load_hdrpars(b,side='blue')
+        rfileexists, robj, rra, rdec = load_hdrpars(r,side='red')
+
+        if bfileexists and rfileexists and (bra == rra) and (bdec == rdec):
+            # both sides observe same object
+            if (rra == current_obj_ra) and coadd_consecutive:
+                # which matches the previous object
+                current_blue.append(b)
+                current_red.append(r)
+                current_obj = robj
+            else:
+                # both sides observe a new object
+                if current_obj_ra != '': # starting the list
+                    coadd_map.append((current_blue, current_red))
+                current_obj = robj
+                objects.append(current_obj)
+                current_blue = [b]
+                current_red = [r]
+                current_obj_ra = rra
+            b+=1
+            r+=1
+        else:
+            # both sides observe different objects (or one side is missing)
+            if rfileexists and (rra == current_obj_ra) and coadd_consecutive:
+                current_red.append(r)
+                r+=1
+            elif bfileexists and (bra == current_obj_ra) and coadd_consecutive:
+                current_blue.append(b)
+                b+=1
+            else:
+                # some other state. save last object
+                coadd_map.append((current_blue, current_red))
+                objects.append(current_obj)
+
+                # peek ahead
+                _, nbobj, nbra, nbdec = load_hdrpars(b+1,side='blue')
+                _, nrobj, nrra, nrdec = load_hdrpars(r+1,side='red')
+
+                # does current blue match either of next objects?
+                if bfileexists:
+                    if (bra != nbra) and (bra != nrra):
+                        # no--write it out by itself
+                        coadd_map.append(([b],[]))
+                        current_blue = []
+                        objects.append(bobj)
+                    else:
+                        # save and continue
+                        current_blue = [b]
+                        current_obj = bobj
+                b+=1
+
+                # does current red match either of next objects?
+                if rfileexists:
+                    if (rra != nbra) and (rra != nrra):
+                        # no--write it out by itself
+                        coadd_map.append(([],[r]))
+                        current_red = []
+                        objects.append(robj)
+                    else:
+                        # save and continue
+                        current_red = [r]
+                        current_obj = robj
+                        current_ra = rra
+                r+=1
+
+    # save final object
+    coadd_map.append((current_blue, current_red))
+
+    for x in zip(objects, coadd_map):
+        print x
+    if do_joins:
+        for lists in coadd_map:
+            combine_sides(lists[0], lists[1],splot='no')
+
+    return coadd_map, objects
+
+                
+                
+
+
+
 def sync(raw='./raw'):
     """Convenience routine for on-the-fly reduction that copies new files 
     from the raw directory into the current working directory without
