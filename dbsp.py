@@ -1012,7 +1012,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     iraf.delete('wavelength_offset*.dat', verify='no')
     iraf.delete(rootname + '.ms.fits', verify="no")
     iraf.delete(rootname + '.0001.fits', verify="no")
-#    iraf.delete(rootname + '.3001.fits', verify="no")
+    iraf.delete(rootname + '.3001.fits', verify="no")
     if flux:
         iraf.delete(rootname + '_flux.0001.fits', verify="no")
         iraf.delete(rootname + '_flux.3001.fits', verify="no")
@@ -1421,13 +1421,23 @@ def read_spectrum(filename):
         dat = np.genfromtxt(filename, names='wave, flux', 
             dtype='f4, f4')
         if os.path.exists(errfile):
-            errdat = np.genfromtxt(errfile, names='ewave, err', 
+            errdat = np.genfromtxt(errfile, names='wave, err', 
                 dtype='f4, f4')
+        else:
+            errdat = None
 
     elif filename.endswith('fits'):
         wave, flux = _load_fits_spectrum(filename)
+        dat = {'wave':wave,'flux':flux}
         if os.path.exists(errfile):
             ewave, err = _load_fits_spectrum(errfile)
+            errdat = {'wave':ewave,'err':err}
+        else:
+            errdat = None
+
+    return dat, errdat
+
+
 
 
 def stack_plot(spec_list, offset = False, alpha=1.):
@@ -1449,7 +1459,7 @@ def stack_plot(spec_list, offset = False, alpha=1.):
 
     offset_val = 0.
     for spec in spec_list:
-        dat = read_spectrum(spec)
+        dat, errdat = read_spectrum(spec)
         plt.plot(dat['wave'], dat['flux']+offset_val, label = spec, alpha=alpha)
         if offset:
             offset_val -= np.median(dat['flux'])
