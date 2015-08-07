@@ -157,7 +157,7 @@ def calculate_dispersion(grating, angle, side='blue', order=1):
 
     return central_wavelength, dispersion
 
-def mark_bad(numbers, side='blue'):
+def mark_bad(imgID_list, side='blue'):
     """Utility for excluding specific files from further analysis.
 
     Saturated or mis-configured exposures are suffixed .bad so file searches
@@ -174,12 +174,12 @@ def mark_bad(numbers, side='blue'):
 
     assert (side in ['blue', 'red'])
     try:
-        for num in numbers:
+        for num in imgID_list:
             name = '{:s}{:04d}.fits'.format(side, num)
             os.rename(name, name+'.bad')
     except TypeError:
         # single number
-        num = numbers
+        num = imgID_list
         name = '{:s}{:04d}.fits'.format(side, num)
         os.rename(name, name+'.bad')
 
@@ -1206,6 +1206,27 @@ def match_spectra_leastsq(y, yref, yerr, yreferr):
         return p[0]
     else:
         raise ValueError('Matching did not converge: {}'.format(mesg))
+
+def simple_coadd(imgID_list, side='blue'):
+    """Utility for coadding spectra from a single side.
+    
+    Parameters
+    ----------
+    imgID_list : list of ints or int
+        image id(s) to be coadded.
+    side : {'blue' (default), 'red', 'both'}
+        'blue' or 'red' to indicate the arm of the spectrograph
+
+    """
+    assert side in ('blue', 'red', 'both')
+    if side == 'both':
+        simple_coadd(imgID_list, side='blue')
+        simple_coadd(imgID_list, side='red')
+        return
+    spec_list_fits = ['{}{:04d}_flux.spec.fits'.format(side,id) for id in imgID_list]
+    out_name = side + '+'.join(['{:03d}'.format(i) for i in imgID_list]) + '_flux'
+    coadd_spectra(spec_list_fits, out_name, scale_spectra=False)
+
 
 def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
     use_ratios=False, ratio_range=[4200, 4300], 
