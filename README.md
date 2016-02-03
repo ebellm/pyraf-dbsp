@@ -5,6 +5,9 @@ This pipeline provides a simplified interface for basic reduction of single-obje
 
 Tested with IRAF 2.16.1, PyRAF 2.1.6.
 
+[![Documentation Status](https://readthedocs.org/projects/pyraf-dbsp/badge/?version=latest)](http://pyraf-dbsp.readthedocs.org/en/latest/?badge=latest)
+
+
 ### Quick Start/Command Summary
 
 Complete night reduction:
