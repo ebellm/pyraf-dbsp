@@ -15,7 +15,7 @@
 import sys
 import os
 import shlex
-from unittest.mock import MagicMock
+from mock import Mock as MagicMock
 from recommonmark.parser import CommonMarkParser
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -52,6 +52,7 @@ source_suffix = ['.rst', '.md']
 #source_suffix = '.rst'
 
 
+# avoid RTD import errors for libraries with C modules
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
