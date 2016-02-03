@@ -1,0 +1,4 @@
+numpy>=1.10
+scipy>=0.16.0
+pyraf>=2.1.6
+pyfits>=3.2
