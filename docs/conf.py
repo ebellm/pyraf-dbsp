@@ -15,6 +15,7 @@
 import sys
 import os
 import shlex
+from unittest.mock import MagicMock
 from recommonmark.parser import CommonMarkParser
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -49,6 +50,16 @@ source_parsers = {
 # You can specify multiple suffix as a list of string:
 source_suffix = ['.rst', '.md']
 #source_suffix = '.rst'
+
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+            return Mock()
+
+MOCK_MODULES = ['numpy', 'scipy', 'pyraf','pyfits']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
