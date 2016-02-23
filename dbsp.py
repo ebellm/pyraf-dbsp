@@ -397,7 +397,7 @@ def make_flats(side='blue',overwrite=False):
             print "No dome or internal flats for the %s arcsec slit." % aperture
 
 
-def make_arcs_blue(slit='0.5', overwrite=False):
+def make_arcs_blue(slit='0.5', overwrite=False, zenith_only = True):
     """Creates the master FeAr arc with iraf.imcombine.
 
     Stores arc as FeAr_{slit}.fits.
@@ -408,6 +408,10 @@ def make_arcs_blue(slit='0.5', overwrite=False):
         string indicating the slit width
     overwrite : boolean
         If True, overwrites existing arc; if False, skips processing.
+	zenith_only : boolean, default True
+		If True, only use arcs taken at zenith.
+		(Combining arcs taken at different elevations is not recommended
+		due to flexure.)
     """
 
     aperture = slit
@@ -416,16 +420,17 @@ def make_arcs_blue(slit='0.5', overwrite=False):
     iraf.imcombine.rdnoise = det_pars['blue']['readnoise']
     iraf.imcombine.gain = det_pars['blue']['gain']
     arcs = iraf.hselect('blue????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000"'.format(aperture=aperture), Stdout=1)
-    try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
-    except:
-        pass
+	if zenith_only:
+		try:
+			arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0100000" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
+		except:
+			pass
     if overwrite:
         iraf.delete('FeAr_{aperture}.fits'.format(aperture=aperture), 
             verify='no')
     iraf.imcombine(','.join(arcs), 'FeAr_{}'.format(aperture), reject="none")
 
-def make_arcs_red(slit='0.5', overwrite=False):
+def make_arcs_red(slit='0.5', overwrite=False, zenith_only = True):
     """Creates the master HeNeAr arc with iraf.imcombine.
 
     Stores arc as HeNeAr_{slit}.fits.
@@ -436,6 +441,10 @@ def make_arcs_red(slit='0.5', overwrite=False):
         string indicating the slit width
     overwrite : boolean
         If True, overwrites existing arc; if False, skips processing.
+	zenith_only : boolean, default True
+		If True, only use arcs taken at zenith.
+		(Combining arcs taken at different elevations is not recommended
+		due to flexure.)
     """
 
     aperture = slit
@@ -444,10 +453,11 @@ def make_arcs_red(slit='0.5', overwrite=False):
     iraf.imcombine.rdnoise = det_pars['red']['readnoise']
     iraf.imcombine.gain = det_pars['red']['gain']
     arcs = iraf.hselect('red????.fits', '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110"'.format(aperture=aperture), Stdout=1)
-    try:
-        arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
-    except:
-        pass
+	if zenith_only:
+		try:
+			arcs = iraf.hselect(','.join(arcs), '$I', 'TURRET == "LAMPS" & APERTURE == "{aperture}" & LAMPS == "0001110" & AIRMASS < 1.01'.format(aperture=aperture), Stdout=1)
+		except:
+			pass
     if overwrite:
         iraf.delete('HeNeAr_{aperture}.fits'.format(aperture=aperture), 
             verify='no')
