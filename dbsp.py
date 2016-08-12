@@ -56,7 +56,9 @@ iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
 
 # use my modified sproc to avoid annoying doslit prompts
+#PkgName = iraf.curpack(); PkgBinary = iraf.curPkgbinary()
 iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
+#iraf.task(doslitDOTpkg = 'doslit$doslit.cl', PkgName=PkgName,PkgBinary=PkgBinary)
 
 # defaults
 # (blue trace is usually around 250-260)
@@ -1471,7 +1473,7 @@ def read_spectrum(filename):
 
 
 
-def stack_plot(spec_list, offset = False, alpha=1.):
+def stack_plot(spec_list, offset = False, alpha=1., normalize=False):
     """Plot several spectra on top of each other with matplotlib.
     Consider also iraf.specplot('spec1,spec2,spec3').
 
@@ -1484,6 +1486,9 @@ def stack_plot(spec_list, offset = False, alpha=1.):
         Plot with a vertical offset between spectra?
     alpha : float, default 1.0 
         Opacity of the plot lines
+    normalize : boolean (default False)
+        Use a robust normalization for plotting multiple spectra on top of 
+        each other when flux varies.
     """
 
     import matplotlib.pyplot as plt
@@ -1491,6 +1496,10 @@ def stack_plot(spec_list, offset = False, alpha=1.):
     offset_val = 0.
     for spec in spec_list:
         dat, errdat = read_spectrum(spec)
+        if normalize:
+            pcts = np.percentile(dat['flux'],[5,95])
+            dat['flux'] /= ((pcts[1]-pcts[0])/0.9)
+
         plt.plot(dat['wave'], dat['flux']+offset_val, label = spec, alpha=alpha)
         if offset:
             offset_val -= np.median(dat['flux'])
