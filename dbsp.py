@@ -80,11 +80,18 @@ else:
                     # crval is in Angstrom, cdelt is Angstrom/pixel
                     # pixel size is in micron
 
-def check_gratings_angles():
+def check_gratings_angles(ids=None):
     """Check header values for grating and angles and update dispersion values
-    accordingly."""
+    accordingly.
 
-    ids = range(15)
+    Parameters
+    ----------
+    ids : list or array
+        image numbers to check for header parameters
+    """
+
+    if ids is None:
+        ids = range(15)
     for side in ['red','blue']:
         for id in ids:
             name = '{}{:04d}.fits'.format(side,id)
@@ -692,7 +699,7 @@ def estimateFWHM(imgID, side='blue'):
 
 def extract1D(imgID, side='blue', trace=None, arc=None, splot='no', 
         resize='yes', flux=True, telluric_cal_id=None, reextract=False, 
-        redo='no', crval=None, cdelt=None, quicklook='no'):
+        sky_shift=True, redo='no', crval=None, cdelt=None, quicklook='no'):
     """Extract spectra for science objects and apply flux and telluric 
     corrections if requested.
     
@@ -726,6 +733,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     reextract : boolean (default False)
         Re-extract spectra?  If False, use existing aperture definitions
         if they exist.  If True, 
+    sky_shfit : boolean (default True)
+        if True, use fit sky lines to adjust wavelength solution
     redo : {'yes', 'no' (default)}
         Redo the spectral extraction from scratch?  Passed to iraf.doslit.
         **Warning**--discards previous wavelength solution!  This is probably 
@@ -870,7 +879,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # measure the position and width of sky lines (do this only for exposures longer than 3 min)
     hdr = pyfits.getheader(rootname + '.fits')
     midpoint_loc = {'blue':4750,'red':7400}
-    if hdr['EXPTIME'] > 120:
+    if hdr['EXPTIME'] > 120 and sky_shift:
         iraf.unlearn('scopy')
         # background band
         iraf.delete(rootname + '.2001.fits', verify='no')
@@ -917,7 +926,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # (CRVAL1 doesn't seem to apply the shift correctly?)
     f = pyfits.open(rootname + '.ms.fits')
     hdr = f[0].header
-    if hdr['EXPTIME'] > 120:
+    if hdr['EXPTIME'] > 120 and sky_shift:
         f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     else:
@@ -938,7 +947,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     f = pyfits.open(rootname + '.0001.fits')
     g = pyfits.open(rootname + '.3001.fits')
     hdr = f[0].header
-    if hdr['EXPTIME'] > 120:
+    if hdr['EXPTIME'] > 120 and sky_shift:
         f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
         f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
         g[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
@@ -1032,7 +1041,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
 
     # statistics
     hdr = pyfits.getheader(rootname + '.spec.fits')
-    if hdr['EXPTIME'] > 120:
+    if hdr['EXPTIME'] > 120 and sky_shift:
         print "Wavelengths are offset by %.3f A, zero-point uncertainty is %.2f km/s at %.0f A." % (offset_final, error_at_mid, midpoint_loc[side])
     snr_loc = {'blue':4000,'red':7000}
     wave1 = np.int(np.floor((snr_loc[side]-10 - hdr_arc['CRVAL1'])/hdr_arc['CDELT1']))
@@ -1047,7 +1056,8 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     # measure FWHM of the trace
     estimateFWHM(imgID, side=side)
 
-def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
+def combine_sides(imgID_list_blue, imgID_list_red, output=None, 
+    save_sides=False, splot='yes'):
     """Downsample extracted blue and red spectra onto a common wavelength grid 
     and coadd, weighting by uncertainties.
 
@@ -1064,6 +1074,8 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     output : string or None (default)
         File name of combined spectra.  If None, defaults to the OBJECT name
         of the first blue spectrum and the blue and red imgIDs.
+    save_sides : boolean (default False)
+        if True, save coadded sides with same formated names
     splot : {'yes' (default), 'no'}
         Plot the combined spectrum?
     """
@@ -1089,6 +1101,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
         output = obj + '_' + \
             ids_to_string(imgID_list_blue) + '+' + \
             ids_to_string(imgID_list_red) 
+        if save_sides:
+            output_blue = obj + '_blue_' + \
+                ids_to_string(imgID_list_blue) 
+            output_red = obj + '_red_' + \
+                ids_to_string(imgID_list_blue) 
 
     # clobber the old output files if they exist
     iraf.delete(output+'.*.fits', verify='no')
@@ -1119,7 +1136,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
 
     # find overlap region
     if red_range[0] >= blue_range[1]:
-        raise ValueError('No overlap in wavelength solution between sides!')
+        if save_sides:
+            coadd_spectra(blue_files, output_blue)
+            coadd_spectra(red_files, output_red)
+            print('No overlap in wavelength solution between sides, exiting!')
+            return
 
     # specify total spectral range
     w1 = blue_range[0]
@@ -1174,6 +1195,11 @@ def combine_sides(imgID_list_blue, imgID_list_red, output=None, splot='yes'):
     # combine individual sides
     coadd_spectra(blue_files_redisp, 'tmp-blue')
     coadd_spectra(red_files_redisp, 'tmp-red')
+
+    # for simplicity, just do this again if we're saving the sides
+    if save_sides:
+        coadd_spectra(blue_files_redisp, output_blue)
+        coadd_spectra(red_files_redisp, output_red)
 
     # find optimum weighting between sides
 
