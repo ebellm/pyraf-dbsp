@@ -559,6 +559,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
 
 def store_standards(imgID_list, side='blue', trace=None, 
     arc=None, splot='no', redo='no', resize='yes', 
+    caldir = "onedstds$iidscal/",
     crval=None, cdelt=None, extract=True, telluric_cal_id=None):
     """Extract spectra for spectroscopic standard stars and determine 
     corrections needed for fluxing.
@@ -595,6 +596,8 @@ def store_standards(imgID_list, side='blue', trace=None,
         and refit the sensitivity function.
     resize : {'yes' (default), 'no'}
         Resize the extraction aperture?  Passed to iraf.doslit.    
+    caldir : string, default "onedstds$iidscal/"
+        Directory to search for calibration standards in.
     crval : int or None (default)
         Spectrum reference dispersion coordinate, if different from default
         [Angstroms of central pixel]
@@ -627,7 +630,7 @@ def store_standards(imgID_list, side='blue', trace=None,
     iraf.delete('sens-{}'.format(side), verify='no')
 
     iraf.unlearn('standard')
-    iraf.standard.caldir = "onedstds$iidscal/"
+    iraf.standard.caldir = caldir
     iraf.standard.output = 'std-{}'.format(side)
     # use the tabulated bandpasses for the standards
     iraf.standard.bandwidth = "INDEF"
