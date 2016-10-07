@@ -13,7 +13,7 @@ import os
 import subprocess
 import shutil
 import inspect
-import pyfits
+import astropy.io.fits as pyfits
 from scipy.optimize.minpack import leastsq
 import copy
 from glob import glob
@@ -736,7 +736,7 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     reextract : boolean (default False)
         Re-extract spectra?  If False, use existing aperture definitions
         if they exist.  If True, 
-    sky_shfit : boolean (default True)
+    sky_shift : boolean (default True)
         if True, use fit sky lines to adjust wavelength solution
     redo : {'yes', 'no' (default)}
         Redo the spectral extraction from scratch?  Passed to iraf.doslit.

@@ -15,7 +15,7 @@ setup(
     install_requires=[
         "pyraf >= 2.0",
         "numpy >= 1.5",
-		"pyfits >= 3.0",
+		"astropy >= 1.0",
 		"scipy >= 0.10.0"
     ],
 )
