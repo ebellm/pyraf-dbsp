@@ -13,7 +13,13 @@ Save a copy of your files in a "raw" directory--this code overwrites the origina
 Start `ipython` and load the script:
 
 	%run /path/to/dbsp.py
-	# Caltech astro users can do:
+
+For users on the Caltech astro network, log in to soroban and execute:
+
+	export PATH="/scr/ebellm/anaconda/bin:$PATH"
+	source activate iraf27
+	mkiraf  # choose xgterm
+	ipython 
 	%run /home/ebellm/observing/reduction/dbsp/dbsp.py
 
 Exclude any images that you don't want to analyze (use your log; especially focus/test exposures from the beginning of the night):

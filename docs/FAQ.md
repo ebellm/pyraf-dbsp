@@ -32,6 +32,21 @@ One of your images is missing a header keyword--find it and mark it bad.
 
 Run `iraf.sensfunc()` and tweak to test, then repeat your `extract1D()` call.
 
+*During fluxing, iraf.calibrate crashes and says it can't find sens-blue.0001.fits. (or sens-red)*
+
+You can work around this by symlinking sens-blue.fits to sens-blue.0001.fits:
+
+ln -s sens-blue.fits sens-blue.0001.fits
+
+*Is there any way to reduce the repetive prompting?*
+
+`pyraf-dbsp` comes with a modified doslit version that minimizes prompting.  
+However, it seems to cause iraf errors for some users.  To run it, set
+
+	export USEDBSPDOSLIT=1
+
+before starting ipython.
+
 *I'm getting an error:*
 
 	ERROR: An unexpected error occurred while tokenizing input
