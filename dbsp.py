@@ -55,10 +55,14 @@ iraf.kpnoslit(_doprint=0)
 iraf.astutil(_doprint=0)
 iraf.onedspec(_doprint=0)
 
-# use my modified sproc to avoid annoying doslit prompts
-#PkgName = iraf.curpack(); PkgBinary = iraf.curPkgbinary()
-iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
-#iraf.task(doslitDOTpkg = 'doslit$doslit.cl', PkgName=PkgName,PkgBinary=PkgBinary)
+# use standard IRAF sproc, as it causes bugs for others: 
+# use my modified sproc to avoid annoying doslit prompts: 
+# export USEDBSPDOSLIT=1
+
+if os.getenv('USEDBSPDOSLIT') is not None:
+    #PkgName = iraf.curpack(); PkgBinary = iraf.curPkgbinary()
+    iraf.reset(doslit = BASE_DIR+"/cl/doslit/")
+    #iraf.task(doslitDOTpkg = 'doslit$doslit.cl', PkgName=PkgName,PkgBinary=PkgBinary)
 
 # defaults
 # (blue trace is usually around 250-260)
@@ -1430,7 +1434,10 @@ def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
     else:
         # when combining sides, use the EXPTIME from the combined blue side
         f[0].header.update('EXPTIME', exptime_blue)
-        del f[0].header['VERR']
+        try:
+            del f[0].header['VERR']
+        except KeyError:
+            pass
     f[0].header.update('MJD', np.round(mjd, decimals=6))
 
     f.writeto('%s.spec.fits' % out_name, clobber=True)
