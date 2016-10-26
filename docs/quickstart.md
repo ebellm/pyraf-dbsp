@@ -27,7 +27,7 @@ Exclude any images that you don't want to analyze (use your log; especially focu
 	mark_bad([47,49,50],side='blue')
 	mark_bad([35],side='red')
 
-Create arcs and dome flats:
+Create arcs and dome flats (run this after you have at least one science exposure):
 
 	create_arc_dome()
 

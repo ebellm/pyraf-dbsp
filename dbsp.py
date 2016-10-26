@@ -1509,7 +1509,8 @@ def read_spectrum(filename):
 
 
 
-def stack_plot(spec_list, offset = False, alpha=1., normalize=False):
+def stack_plot(spec_list, offset = False, alpha=1., normalize=False, 
+    legend=True):
     """Plot several spectra on top of each other with matplotlib.
     Consider also iraf.specplot('spec1,spec2,spec3').
 
@@ -1525,6 +1526,8 @@ def stack_plot(spec_list, offset = False, alpha=1., normalize=False):
     normalize : boolean (default False)
         Use a robust normalization for plotting multiple spectra on top of 
         each other when flux varies.
+    legend : boolean (default True)
+        Include a legend with filenames?
     """
 
     import matplotlib.pyplot as plt
@@ -1540,7 +1543,8 @@ def stack_plot(spec_list, offset = False, alpha=1., normalize=False):
         if offset:
             offset_val -= np.median(dat['flux'])
         print spec
-    plt.legend()
+    if legend:
+        plt.legend()
     plt.show()
 
 def find_gain_readnoise(side='blue', aperture='1.0'):
