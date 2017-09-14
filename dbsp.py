@@ -558,7 +558,7 @@ def preprocess_image(filename, side='blue', flatcor = 'yes',
         sigclip = 4.5, sigfrac = 0.5, objlim = 2.0, satlevel=60000,
         skyOrder = 0, objectOrder = 0)
         c.run(maxiter = 3)
-        header.update('COSMIC', 1, '1 if we ran LA Cosmic')
+        header.set('COSMIC', 1, '1 if we ran LA Cosmic')
         pyfits.writeto(filename, c.cleanarray, header, clobber=True)
 
 def store_standards(imgID_list, side='blue', trace=None, 
@@ -695,12 +695,12 @@ def estimateFWHM(imgID, side='blue'):
 
     # update the header
     f = pyfits.open('%s%04d.spec.fits' % (side, imgID))
-    f[0].header.update('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
+    f[0].header.set('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
     f.writeto('%s%04d.spec.fits' % (side, imgID), clobber=True)
     f.close()
     if os.access('%s%04d_flux.spec.fits' % (side, imgID), os.F_OK):
         f = pyfits.open('%s%04d_flux.spec.fits' % (side, imgID))
-        f[0].header.update('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
+        f[0].header.set('FWHM', np.round(fwhm, 2), 'FWHM estimate of the trace [pix]')
         f.writeto('%s%04d_flux.spec.fits' % (side, imgID), clobber=True)
         f.close()
 
@@ -934,11 +934,11 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     f = pyfits.open(rootname + '.ms.fits')
     hdr = f[0].header
     if hdr['EXPTIME'] > 120 and sky_shift:
-        f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     else:
-        f[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     f.writeto(rootname + '.ms.fits', clobber=True)
     f.close()
 
@@ -955,17 +955,17 @@ def extract1D(imgID, side='blue', trace=None, arc=None, splot='no',
     g = pyfits.open(rootname + '.3001.fits')
     hdr = f[0].header
     if hdr['EXPTIME'] > 120 and sky_shift:
-        f[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        f[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
-        g[0].header.update('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        g[0].header.update('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        g[0].header.set('WOFF', '%.2f' % offset_final, 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        g[0].header.set('VERR', '%.2f' % error_at_mid, 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
         iraf.specshift(rootname + '.0001', '%.3f' % (-offset_final))
         iraf.specshift(rootname + '.3001', '%.3f' % (-offset_final))
     else:
-        f[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        f[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
-        g[0].header.update('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
-        g[0].header.update('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        f[0].header.set('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
+        g[0].header.set('WOFF', '-99.99', 'Wavelength offset from sky lines in A at {} A'.format(midpoint_loc[side]))
+        g[0].header.set('VERR', '-99.99', 'Uncertainty in km/s at {} A'.format(midpoint_loc[side]))
     f.writeto(rootname + '.0001.fits', clobber=True)
     g.writeto(rootname + '.3001.fits', clobber=True)
     f.close()
@@ -1420,25 +1420,25 @@ def coadd_spectra(spec_list_fits, out_name, scale_spectra=True,
     # add keywords
     f = pyfits.open('%s.spec.fits' % out_name)
     for key in hdr_save.keys():
-        f[0].header.update(key, hdr_save[key])
-    f[0].header.update('DATE-OBS', date_obs)
-    f[0].header.update('OBSERVAT', observat)
-    f[0].header.update('EPOCH', epoch)
+        f[0].header.set(key, hdr_save[key])
+    f[0].header.set('DATE-OBS', date_obs)
+    f[0].header.set('OBSERVAT', observat)
+    f[0].header.set('EPOCH', epoch)
     if one_side:
         # exposure time and velocity error are only well-defined for
         # data combined from a single side
-        f[0].header.update('EXPTIME', exptime)
-        f[0].header.update('FWHM', seeing/len(spec_list_fits))
-        f[0].header.update('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s')
+        f[0].header.set('EXPTIME', exptime)
+        f[0].header.set('FWHM', seeing/len(spec_list_fits))
+        f[0].header.set('VERR', '%.2f' % np.sqrt(verr), 'Uncertainty in km/s')
         mjd += exptime/(2.*60.*60.*24.)
     else:
         # when combining sides, use the EXPTIME from the combined blue side
-        f[0].header.update('EXPTIME', exptime_blue)
+        f[0].header.set('EXPTIME', exptime_blue)
         try:
             del f[0].header['VERR']
         except KeyError:
             pass
-    f[0].header.update('MJD', np.round(mjd, decimals=6))
+    f[0].header.set('MJD', np.round(mjd, decimals=6))
 
     f.writeto('%s.spec.fits' % out_name, clobber=True)
     f.close()
