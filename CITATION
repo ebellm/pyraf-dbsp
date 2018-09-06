@@ -1,0 +1,12 @@
+@MISC{2016ascl.soft02002B,
+   author = {{Bellm}, E.~C. and {Sesar}, B.},
+    title = "{pyraf-dbsp: Reduction pipeline for the Palomar Double Beam Spectrograph}",
+ keywords = {Software },
+howpublished = {Astrophysics Source Code Library},
+     year = 2016,
+    month = feb,
+archivePrefix = "ascl",
+   eprint = {1602.002},
+   adsurl = {http://adsabs.harvard.edu/abs/2016ascl.soft02002B},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
